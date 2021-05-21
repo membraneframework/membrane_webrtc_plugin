@@ -4,7 +4,7 @@ defmodule Membrane.WebRTC.Track do
   """
   alias Membrane.RTP
 
-  @enforce_keys [:type, :stream_id, :id, :name, :timestamp]
+  @enforce_keys [:type, :stream_id, :id, :mid, :name, :timestamp]
   defstruct @enforce_keys ++ [ssrc: nil, encoding: nil, enabled?: true]
 
   @type id :: String.t()
@@ -14,6 +14,7 @@ defmodule Membrane.WebRTC.Track do
           type: :audio | :video,
           stream_id: String.t(),
           id: id,
+          mid: String.t(),
           name: String.t(),
           ssrc: RTP.ssrc_t(),
           encoding: encoding,
@@ -28,18 +29,21 @@ defmodule Membrane.WebRTC.Track do
   that can be generated with `stream_id/0`.
   """
   @spec new(:audio | :video, stream_id :: String.t(),
-          id: String.t(),
+          id: id,
+          mid: String.t(),
           name: String.t(),
           ssrc: RTP.ssrc_t(),
           encoding: encoding
         ) :: t
   def new(type, stream_id, opts \\ []) do
-    id = Keyword.get(opts, :id, Base.encode16(:crypto.strong_rand_bytes(8)))
-    name = Keyword.get(opts, :name, "#{id}-#{type}-#{stream_id}")
+    id = Keyword.get(opts, :id, UUID.uuid4())
+    mid = Keyword.get(opts, :mid, Base.encode16(:crypto.strong_rand_bytes(8)))
+    name = Keyword.get(opts, :name, "#{mid}-#{type}-#{stream_id}")
 
     %__MODULE__{
       type: type,
       stream_id: stream_id,
+      mid: mid,
       id: id,
       name: name,
       ssrc: Keyword.get(opts, :ssrc),

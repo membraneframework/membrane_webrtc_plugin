@@ -13,7 +13,7 @@ defmodule Membrane.WebRTC.EndpointBin do
   """
   use Membrane.Bin
 
-  alias ExSDP.{Attribute.SSRC, Media}
+  alias ExSDP.{Attribute.SSRC, Attribute.MSID, Media}
   alias Membrane.WebRTC.{SDP, Track}
 
   require Membrane.Logger
@@ -150,7 +150,8 @@ defmodule Membrane.WebRTC.EndpointBin do
         outbound_tracks: %{},
         candidates: [],
         offer_sent: false,
-        dtls_fingerprint: nil
+        dtls_fingerprint: nil,
+        first_sdp_answer_arrived?: false
       }
       |> add_tracks(:inbound_tracks, opts.inbound_tracks)
       |> add_tracks(:outbound_tracks, opts.outbound_tracks)
@@ -234,7 +235,12 @@ defmodule Membrane.WebRTC.EndpointBin do
   def handle_notification({:new_rtp_stream, ssrc, pt}, _from, _ctx, state) do
     %{encoding_name: encoding} = Membrane.RTP.PayloadFormat.get_payload_type_mapping(pt)
     mid = Map.fetch!(state.ssrc_to_mid, ssrc)
-    track = Map.fetch!(state.inbound_tracks, mid)
+
+    track =
+      state.inbound_tracks
+      |> Map.values()
+      |> Enum.find(&(&1.mid == mid))
+
     track = %Track{track | ssrc: ssrc, encoding: encoding}
     state = put_in(state, [:inbound_tracks, track.id], track)
     {{:ok, notify: {:new_track, track.id, encoding}}, state}
@@ -290,24 +296,61 @@ defmodule Membrane.WebRTC.EndpointBin do
   end
 
   @impl true
-  def handle_other({:signal, {:sdp_answer, sdp}}, _ctx, state) do
+  def handle_other({:signal, {:sdp_answer, sdp}}, _ctx, %{first_sdp_answer_arrived?: false} = state) do
     {:ok, sdp} = sdp |> ExSDP.parse()
+    remote_credentials = get_remote_credentials(sdp)
 
     ssrc_to_mid =
       sdp.media
       |> Enum.filter(&(:sendonly in &1.attributes))
-      |> Enum.map(fn media ->
+      |> Map.new(fn media ->
         {:mid, mid} = Media.get_attribute(media, :mid)
         %SSRC{id: ssrc} = Media.get_attribute(media, SSRC)
 
         {ssrc, mid}
       end)
-      |> Enum.into(%{})
 
+    mid_to_msid_app_data =
+      sdp.media
+      |> Enum.filter(&(:sendonly in &1.attributes))
+      |> Map.new(fn media ->
+        %MSID{app_data: app_data} = Media.get_attribute(media, MSID)
+        {:mid, mid} = Media.get_attribute(media, :mid)
+
+        {mid, app_data}
+      end)
+
+    inbound_tracks =
+      state.inbound_tracks
+      |> Map.new(fn {_id, track} ->
+        track = track |> Map.put(:id, mid_to_msid_app_data[track.mid])
+        {track.id, track}
+      end)
+
+    actions =
+      [
+        forward: {:ice, {:set_remote_credentials, remote_credentials}},
+        notify: {:new_tracks_ids, mid_to_msid_app_data}
+      ]
+
+    state =
+      state
+      |> Map.merge(%{
+        inbound_tracks: inbound_tracks,
+        mid_to_msid_app_data: mid_to_msid_app_data,
+        ssrc_to_mid: ssrc_to_mid,
+        first_sdp_answer_arrived?: true
+      })
+
+    {{:ok, actions}, state}
+  end
+
+  @impl true
+  def handle_other({:signal, {:sdp_answer, sdp}}, _ctx, state) do
+    {:ok, sdp} = sdp |> ExSDP.parse()
     remote_credentials = get_remote_credentials(sdp)
 
-    {{:ok, forward: {:ice, {:set_remote_credentials, remote_credentials}}},
-     Map.put(state, :ssrc_to_mid, ssrc_to_mid)}
+    {{:ok, [forward: {:ice, {:set_remote_credentials, remote_credentials}}]}, state}
   end
 
   @impl true
@@ -353,7 +396,10 @@ defmodule Membrane.WebRTC.EndpointBin do
           tracks
       end
 
-    tracks = Map.new(tracks, &{&1.id, &1})
+    tracks =
+      tracks
+      |> Map.new(&{&1.id, &1})
+
     Map.update!(state, direction, &Map.merge(&1, tracks))
   end
 
