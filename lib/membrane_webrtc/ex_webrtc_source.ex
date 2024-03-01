@@ -3,6 +3,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   require Membrane.Logger
 
+  alias ExWebRTC.ICECandidate
+  alias ExWebRTC.SessionDescription
   alias ExWebRTC.{PeerConnection, RTPCodecParameters}
   alias Membrane.WebRTC.SignalingChannel
 
@@ -115,7 +117,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:ice_candidate, candidate}}, _ctx, state) do
-    send(state.signaling.pid, {:element, {:ice, candidate}})
+    send(state.signaling.pid, {:element, candidate})
     {[], state}
   end
 
@@ -130,16 +132,16 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({SignalingChannel, :sdp, sdp}, _ctx, state) do
+  def handle_info({SignalingChannel, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
     {:ok, answer} = PeerConnection.create_answer(state.pc)
     :ok = PeerConnection.set_local_description(state.pc, answer)
-    send(state.signaling.pid, {:element, {:sdp, answer}})
+    send(state.signaling.pid, {:element, answer})
     {[], state}
   end
 
   @impl true
-  def handle_info({SignalingChannel, :ice, candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, %ICECandidate{} = candidate}, _ctx, state) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end

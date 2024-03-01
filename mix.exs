@@ -37,7 +37,8 @@ defmodule Membrane.Template.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 1.0"},
-      {:ex_webrtc, "~> 0.1.0"},
+      # {:ex_webrtc, "~> 0.1.0"},
+      {:ex_webrtc, github: "elixir-webrtc/ex_webrtc"},
       {:membrane_rtp_plugin, ">= 0.0.0"},
       {:membrane_rtp_h264_plugin, ">= 0.0.0"},
       {:membrane_rtp_opus_plugin, ">= 0.0.0"},

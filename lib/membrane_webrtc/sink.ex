@@ -59,6 +59,6 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   defp get_payloader(:video) do
-    Membrane.RTP.H264.Payloader
+    %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
   end
 end

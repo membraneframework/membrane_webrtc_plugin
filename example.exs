@@ -35,40 +35,21 @@ defmodule Example.PeerHandler do
 
   @impl true
   def init(_opts) do
-    signaling = SignalingChannel.new()
+    signaling = SignalingChannel.new(:json)
     {:ok, _supervisor, pipeline} = Membrane.Pipeline.start(Example.Pipeline, signaling)
     {:ok, %{signaling: signaling, pipeline: pipeline}}
   end
 
   @impl true
-  def handle_in({msg, [opcode: :text]}, state) do
-    case Jason.decode!(msg) do
-      %{"type" => "ice", "data" => data} ->
-        SignalingChannel.ice_candidate(state.signaling, ICECandidate.from_json(data))
-
-      %{"type" => "offer", "data" => data} ->
-        SignalingChannel.sdp(state.signaling, SessionDescription.from_json(data))
-    end
-
+  def handle_in({message, opcode: :text}, state) do
+    SignalingChannel.signal(state.signaling, message)
     {:ok, state}
   end
 
   @impl true
-  def handle_info({SignalingChannel, :sdp, sdp}, state) do
-    msg =
-      %{"type" => "answer", "data" => SessionDescription.to_json(sdp)}
-      |> Jason.encode!()
-
-    {:push, {:text, msg}, state}
-  end
-
-  @impl true
-  def handle_info({SignalingChannel, :ice, candidate}, state) do
-    msg =
-      %{"type" => "ice", "data" => ICECandidate.to_json(candidate)}
-      |> Jason.encode!()
-
-    {:push, {:text, msg}, state}
+  def handle_info({SignalingChannel, message}, state) do
+    IO.puts(message)
+    {:push, {:text, message}, state}
   end
 end
 
@@ -81,26 +62,26 @@ defmodule Example.Pipeline do
   def handle_init(_ctx, signaling) do
     spec =
       [
-        # child(:webrtc, %WebRTC.Source{signaling_channel: signaling}),
-        # child(:matroska, Membrane.Matroska.Muxer)
-        # |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"}),
-        # get_child(:webrtc)
-        # |> via_out(Pad.ref(:output, :audio))
-        # |> child(Membrane.Opus.Parser)
-        # |> get_child(:matroska),
-        # get_child(:webrtc)
-        # |> via_out(Pad.ref(:output, :video))
-        # |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
-        # |> get_child(:matroska)
-        child(:webrtc, %WebRTC.Sink{signaling_channel: signaling, tracks: [:audio, :video]}),
-        child(%Membrane.File.Source{location: "bbb.h264"})
-        |> child(%Membrane.H264.Parser{
-          generate_best_effort_timestamps: %{framerate: {30, 1}},
-          output_alignment: :nalu
-        })
-        |> child(Membrane.Realtimer)
-        |> via_in(:input, options: [kind: :video])
-        |> get_child(:webrtc)
+        child(:webrtc, %WebRTC.Source{signaling_channel: signaling}),
+        child(:matroska, Membrane.Matroska.Muxer)
+        |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"}),
+        get_child(:webrtc)
+        |> via_out(Pad.ref(:output, :audio))
+        |> child(Membrane.Opus.Parser)
+        |> get_child(:matroska),
+        get_child(:webrtc)
+        |> via_out(Pad.ref(:output, :video))
+        |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
+        |> get_child(:matroska)
+        # child(:webrtc, %WebRTC.Sink{signaling_channel: signaling, tracks: [:audio, :video]}),
+        # child(%Membrane.File.Source{location: "bbb.h264"})
+        # |> child(%Membrane.H264.Parser{
+        #   generate_best_effort_timestamps: %{framerate: {30, 1}},
+        #   output_alignment: :nalu
+        # })
+        # |> child(Membrane.Realtimer)
+        # |> via_in(:input, options: [kind: :video])
+        # |> get_child(:webrtc)
       ]
 
     {[spec: spec], %{signaling: signaling}}

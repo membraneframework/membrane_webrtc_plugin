@@ -1,21 +1,18 @@
 defmodule Membrane.WebRTC.SignalingChannel do
   use GenServer
 
+  alias ExWebRTC.{ICECandidate, SessionDescription}
+
   @enforce_keys [:pid]
   defstruct @enforce_keys
 
-  def new(pid \\ self()) do
-    {:ok, pid} = GenServer.start_link(__MODULE__, pid)
+  def new(mode, pid \\ self()) do
+    {:ok, pid} = GenServer.start_link(__MODULE__, %{mode: mode, peer_pid: pid})
     %__MODULE__{pid: pid}
   end
 
-  def sdp(%__MODULE__{pid: pid}, sdp) do
-    send(pid, {:peer, {:sdp, sdp}})
-    :ok
-  end
-
-  def ice_candidate(%__MODULE__{pid: pid}, ice_candidate) do
-    send(pid, {:peer, {:ice, ice_candidate}})
+  def signal(%__MODULE__{pid: pid}, message) do
+    send(pid, {:peer, message})
     :ok
   end
 
@@ -24,8 +21,8 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   @impl true
-  def init(peer_pid) do
-    {:ok, %{peer_pid: peer_pid, element_pid: nil, msgs_from_peer: []}}
+  def init(%{mode: mode, peer_pid: peer_pid}) do
+    {:ok, %{peer_pid: peer_pid, mode: mode, element_pid: nil, msgs_from_peer: []}}
   end
 
   @impl true
@@ -35,25 +32,26 @@ defmodule Membrane.WebRTC.SignalingChannel do
 
   @impl true
   def handle_info({:peer, message}, state) do
-    forward(state.element_pid, message)
+    send_element(message, state)
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:element, message}, state) do
-    forward(state.peer_pid, message)
+    send_peer(message, state)
     {:noreply, state}
   end
 
   @impl true
   def handle_info({:register_element, pid}, state) do
     Process.monitor(pid)
+    state = %{state | element_pid: pid}
 
     state.msgs_from_peer
     |> Enum.reverse()
-    |> Enum.each(&forward(pid, &1))
+    |> Enum.each(&send_element(&1, state))
 
-    {:noreply, %{state | element_pid: pid, msgs_from_peer: []}}
+    {:noreply, %{state | msgs_from_peer: []}}
   end
 
   @impl true
@@ -64,13 +62,36 @@ defmodule Membrane.WebRTC.SignalingChannel do
     {:stop, reason, state}
   end
 
-  @impl true
-  def terminate(reason, state) do
-    forward(state.peer_pid, {:closed, reason})
-    :ok
+  defp send_peer(message, %{mode: :term} = state) do
+    send(state.peer_pid, {__MODULE__, message})
   end
 
-  defp forward(pid, {type, content}) do
-    send(pid, {__MODULE__, type, content})
+  defp send_peer(message, %{mode: :json} = state) do
+    json =
+      case message do
+        %ICECandidate{} ->
+          %{"type" => "ice_candidate", "data" => ICECandidate.to_json(message)}
+
+        %SessionDescription{type: type} ->
+          %{"type" => "sdp_#{type}", "data" => SessionDescription.to_json(message)}
+      end
+      |> Jason.encode!()
+
+    send(state.peer_pid, {__MODULE__, json})
+  end
+
+  defp send_element(message, %{mode: :term} = state) do
+    send(state.element_pid, {__MODULE__, message})
+  end
+
+  defp send_element(message, %{mode: :json} = state) do
+    message =
+      case Jason.decode!(message) do
+        %{"type" => "ice_candidate", "data" => candidate} -> ICECandidate.from_json(candidate)
+        %{"type" => "sdp_offer", "data" => offer} -> SessionDescription.from_json(offer)
+        %{"type" => "sdp_answer", "data" => answer} -> SessionDescription.from_json(answer)
+      end
+
+    send(state.element_pid, {__MODULE__, message})
   end
 end

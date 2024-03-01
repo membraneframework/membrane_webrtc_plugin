@@ -115,7 +115,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({SignalingChannel, :sdp, sdp}, _ctx, state) do
+  def handle_info({SignalingChannel, :sdp_offer, sdp}, _ctx, state) do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
     {:ok, answer} = PeerConnection.create_answer(state.pc)
     :ok = PeerConnection.set_local_description(state.pc, answer)
@@ -124,7 +124,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({SignalingChannel, :ice, candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, :ice_candidate, candidate}, _ctx, state) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end
@@ -147,14 +147,16 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   defp send_buffer(pad, buffer, state) do
-    time = Membrane.Time.monotonic_time()
-    prev_time = Process.get(:last_packet_time) || time
-    Process.put(:last_packet_time, time)
-    time_diff = Membrane.Time.as_milliseconds(time - prev_time, :round)
     ts = buffer.pts
     last_ts = Process.get(:last_packet_ts) || ts
     Process.put(:last_packet_ts, ts)
     ts_diff = Membrane.Time.as_milliseconds(ts - last_ts, :round)
+
+    # if ts - last_ts > 0, do: Process.sleep(30)
+    time = Membrane.Time.monotonic_time()
+    prev_time = Process.get(:last_packet_time) || time
+    Process.put(:last_packet_time, time)
+    time_diff = Membrane.Time.as_milliseconds(time - prev_time, :round)
     Membrane.Logger.info("packet ts_diff: #{ts_diff}, time_diff: #{time_diff}")
 
     timestamp =
@@ -168,7 +170,5 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
       )
 
     PeerConnection.send_rtp(state.pc, state.input_tracks[pad], packet)
-
-    # Process.sleep(1)
   end
 end
