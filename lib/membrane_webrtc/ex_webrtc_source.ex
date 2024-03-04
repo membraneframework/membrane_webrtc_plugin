@@ -6,7 +6,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   alias ExWebRTC.ICECandidate
   alias ExWebRTC.SessionDescription
   alias ExWebRTC.{PeerConnection, RTPCodecParameters}
-  alias Membrane.WebRTC.SignalingChannel
+  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer}
 
   def_options signaling_channel: []
 
@@ -49,6 +49,22 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
+  def handle_setup(ctx, state) do
+    case state.signaling do
+      %SignalingChannel{} ->
+        {[notify_parent: :ready], state}
+
+      {:websocket, opts} ->
+        Membrane.UtilitySupervisor.start_link_child(
+          ctx.utility_supervisor,
+          {SimpleWebSocketServer, [element: self()] ++ opts}
+        )
+
+        {[setup: :incomplete], state}
+    end
+  end
+
+  @impl true
   def handle_playing(_ctx, state) do
     {:ok, pc} =
       PeerConnection.start(
@@ -77,6 +93,11 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     buffers = Enum.reverse(queue)
     state = put_in(state, [:output_tracks, pad_id], {:connected, pad})
     {[stream_format: {pad, %Membrane.RTP{}}, buffer: {pad, buffers}], state}
+  end
+
+  @impl true
+  def handle_info({:signaling, signaling}, _ctx, state) do
+    {[setup: :complete, notify_parent: :ready], %{state | signaling: signaling}}
   end
 
   @impl true

@@ -17,10 +17,10 @@ defmodule Example.Pipeline do
   alias Membrane.WebRTC
 
   @impl true
-  def handle_init(_ctx, signaling) do
+  def handle_init(_ctx, opts) do
     spec =
       [
-        child(:webrtc, %WebRTC.Source{signaling_channel: {:websocket, port: 8829}}),
+        child(:webrtc, %WebRTC.Source{signaling_channel: {:websocket, port: opts[:port]}}),
         child(:matroska, Membrane.Matroska.Muxer)
         |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"}),
         get_child(:webrtc)
@@ -31,18 +31,9 @@ defmodule Example.Pipeline do
         |> via_out(Pad.ref(:output, :video))
         |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
         |> get_child(:matroska)
-        # child(:webrtc, %WebRTC.Sink{signaling_channel: signaling, tracks: [:audio, :video]}),
-        # child(%Membrane.File.Source{location: "bbb.h264"})
-        # |> child(%Membrane.H264.Parser{
-        #   generate_best_effort_timestamps: %{framerate: {30, 1}},
-        #   output_alignment: :nalu
-        # })
-        # |> child(Membrane.Realtimer)
-        # |> via_in(:input, options: [kind: :video])
-        # |> get_child(:webrtc)
       ]
 
-    {[spec: spec], %{signaling: signaling}}
+    {[spec: spec], %{}}
   end
 
   @impl true
@@ -57,13 +48,12 @@ defmodule Example.Pipeline do
 
   @impl true
   def handle_terminate_request(_ctx, state) do
-    WebRTC.SignalingChannel.close(state.signaling)
     {[], state}
   end
 end
 
 Logger.configure(level: :debug)
 
-Membrane.Pipeline.start_link(Example.Pipeline)
+Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
 
 Process.sleep(:infinity)

@@ -66,7 +66,7 @@ defmodule Membrane.WebRTC.SignalingChannel do
     send(state.peer_pid, {__MODULE__, message})
   end
 
-  defp send_peer(message, %{mode: :json} = state) do
+  defp send_peer(message, %{mode: :json_data} = state) do
     json =
       case message do
         %ICECandidate{} ->
@@ -75,7 +75,6 @@ defmodule Membrane.WebRTC.SignalingChannel do
         %SessionDescription{type: type} ->
           %{"type" => "sdp_#{type}", "data" => SessionDescription.to_json(message)}
       end
-      |> Jason.encode!()
 
     send(state.peer_pid, {__MODULE__, json})
   end
@@ -84,9 +83,9 @@ defmodule Membrane.WebRTC.SignalingChannel do
     send(state.element_pid, {__MODULE__, message})
   end
 
-  defp send_element(message, %{mode: :json} = state) do
+  defp send_element(message, %{mode: :json_data} = state) do
     message =
-      case Jason.decode!(message) do
+      case message do
         %{"type" => "ice_candidate", "data" => candidate} -> ICECandidate.from_json(candidate)
         %{"type" => "sdp_offer", "data" => offer} -> SessionDescription.from_json(offer)
         %{"type" => "sdp_answer", "data" => answer} -> SessionDescription.from_json(answer)

@@ -43,7 +43,6 @@ defmodule Membrane.Template.Mixfile do
       {:membrane_rtp_h264_plugin, ">= 0.0.0"},
       {:membrane_rtp_opus_plugin, ">= 0.0.0"},
       {:bandit, ">= 0.0.0"},
-      {:cowboy, ">= 0.0.0"},
       {:websock_adapter, "~> 0.5.0"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},

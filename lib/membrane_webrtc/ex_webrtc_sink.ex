@@ -1,11 +1,17 @@
 defmodule Membrane.WebRTC.ExWebRTCSink do
   use Membrane.Endpoint
 
-  alias ExWebRTC.MediaStreamTrack
-  alias ExWebRTC.{PeerConnection, RTPCodecParameters}
-  alias Membrane.WebRTC.SignalingChannel
-
   require Membrane.Logger
+
+  alias ExWebRTC.{
+    ICECandidate,
+    MediaStreamTrack,
+    PeerConnection,
+    RTPCodecParameters,
+    SessionDescription
+  }
+
+  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer}
 
   def_options signaling_channel: [], tracks: []
 
@@ -53,26 +59,20 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_setup(_ctx, state) do
-    {:ok, pc} =
-      PeerConnection.start_link(
-        ice_servers: @ice_servers,
-        video_codecs: @video_codecs,
-        audio_codecs: @audio_codecs
-      )
+  def handle_setup(ctx, state) do
+    case state.signaling do
+      %SignalingChannel{} ->
+        state = start_pc(state)
+        {[setup: :incomplete], state}
 
-    Process.monitor(state.signaling.pid)
-    send(state.signaling.pid, {:register_element, self()})
+      {:websocket, opts} ->
+        Membrane.UtilitySupervisor.start_link_child(
+          ctx.utility_supervisor,
+          {SimpleWebSocketServer, [element: self()] ++ opts}
+        )
 
-    awaiting_tracks =
-      Enum.map(state.awaiting_tracks, fn %{kind: kind} = track ->
-        webrtc_track = MediaStreamTrack.new(kind)
-        PeerConnection.add_track(pc, webrtc_track)
-        %{track | id: webrtc_track.id}
-      end)
-
-    {[setup: :incomplete],
-     %{state | awaiting_tracks: awaiting_tracks, pc: pc, status: :connecting}}
+        {[setup: :incomplete], state}
+    end
   end
 
   @impl true
@@ -93,13 +93,19 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
+  def handle_info({:signaling, signaling}, _ctx, state) do
+    state = start_pc(%{state | signaling: signaling})
+    {[], state}
+  end
+
+  @impl true
   def handle_info({:ex_webrtc, _from, _msg}, _ctx, %{status: :closed} = state) do
     {[], state}
   end
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:ice_candidate, candidate}}, _ctx, state) do
-    send(state.signaling.pid, {:element, {:ice, candidate}})
+    send(state.signaling.pid, {:element, candidate})
     {[], state}
   end
 
@@ -115,16 +121,13 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({SignalingChannel, :sdp_offer, sdp}, _ctx, state) do
+  def handle_info({SignalingChannel, %SessionDescription{type: :answer} = sdp}, _ctx, state) do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
-    {:ok, answer} = PeerConnection.create_answer(state.pc)
-    :ok = PeerConnection.set_local_description(state.pc, answer)
-    send(state.signaling.pid, {:element, {:sdp, answer}})
     {[], state}
   end
 
   @impl true
-  def handle_info({SignalingChannel, :ice_candidate, candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, %ICECandidate{} = candidate}, _ctx, state) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end
@@ -146,19 +149,32 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     {actions, %{state | status: :closed}}
   end
 
+  defp start_pc(state) do
+    {:ok, pc} =
+      PeerConnection.start_link(
+        ice_servers: @ice_servers,
+        video_codecs: @video_codecs,
+        audio_codecs: @audio_codecs
+      )
+
+    Process.monitor(state.signaling.pid)
+    send(state.signaling.pid, {:register_element, self()})
+
+    awaiting_tracks =
+      Enum.map(state.awaiting_tracks, fn %{kind: kind} = track ->
+        webrtc_track = MediaStreamTrack.new(kind)
+        PeerConnection.add_track(pc, webrtc_track)
+        %{track | id: webrtc_track.id}
+      end)
+
+    {:ok, offer} = PeerConnection.create_offer(pc)
+    :ok = PeerConnection.set_local_description(pc, offer)
+    send(state.signaling.pid, {:element, offer})
+
+    %{state | awaiting_tracks: awaiting_tracks, pc: pc, status: :connecting}
+  end
+
   defp send_buffer(pad, buffer, state) do
-    ts = buffer.pts
-    last_ts = Process.get(:last_packet_ts) || ts
-    Process.put(:last_packet_ts, ts)
-    ts_diff = Membrane.Time.as_milliseconds(ts - last_ts, :round)
-
-    # if ts - last_ts > 0, do: Process.sleep(30)
-    time = Membrane.Time.monotonic_time()
-    prev_time = Process.get(:last_packet_time) || time
-    Process.put(:last_packet_time, time)
-    time_diff = Membrane.Time.as_milliseconds(time - prev_time, :round)
-    Membrane.Logger.info("packet ts_diff: #{ts_diff}, time_diff: #{time_diff}")
-
     timestamp =
       Membrane.Time.divide_by_timebase(buffer.pts, Ratio.new(Membrane.Time.second(), 90_000))
 

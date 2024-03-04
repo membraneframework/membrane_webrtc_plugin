@@ -1,9 +1,11 @@
 defmodule Membrane.WebRTC.SimpleWebSocketServer do
-  def start_link(opts) do
-    Bandit.start_link(
-      plug: {__MODULE__.Router, %{conn_cnt: :atomics.new(1, []), element: opts[:element]}},
-      ip: opts[:ip] || {127, 0, 0, 1},
-      port: opts[:port]
+  def child_spec(opts) do
+    Supervisor.child_spec(
+      {Bandit,
+       plug: {__MODULE__.Router, %{conn_cnt: :atomics.new(1, []), element: opts[:element]}},
+       ip: opts[:ip] || {127, 0, 0, 1},
+       port: opts[:port]},
+      []
     )
   end
 
@@ -51,21 +53,20 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
 
     @impl true
     def init(opts) do
-      signaling = SignalingChannel.new(:json)
+      signaling = SignalingChannel.new(:json_data)
       send(opts.element, {:signaling, signaling})
       {:ok, %{signaling: signaling}}
     end
 
     @impl true
     def handle_in({message, opcode: :text}, state) do
-      SignalingChannel.signal(state.signaling, message)
+      SignalingChannel.signal(state.signaling, Jason.decode!(message))
       {:ok, state}
     end
 
     @impl true
     def handle_info({SignalingChannel, message}, state) do
-      IO.puts(message)
-      {:push, {:text, message}, state}
+      {:push, {:text, Jason.encode!(message)}, state}
     end
   end
 end

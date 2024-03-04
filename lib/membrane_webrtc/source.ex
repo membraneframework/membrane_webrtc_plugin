@@ -1,7 +1,7 @@
 defmodule Membrane.WebRTC.Source do
   use Membrane.Bin
 
-  alias Membrane.WebRTC.{ExWebRTCSource, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.ExWebRTCSource
 
   def_options signaling_channel: []
 
@@ -11,30 +11,14 @@ defmodule Membrane.WebRTC.Source do
     options: [depayload_rtp: [default: true]]
 
   @impl true
-  def handle_setup(ctx, opts) do
-    actions =
-      case opts.signaling_channel do
-        %SignalingChannel{} = signaling ->
-          [spec: child(:webrtc, %ExWebRTCSource{signaling_channel: signaling})]
-
-        {:websocket, opts} ->
-          # Membrane.UtilitySupervisor.start_link_child(
-          #   ctx.utility_supervisor,
-          #   {SimpleWebSocketServer, [element: self()] ++ opts}
-          # )
-
-          SimpleWebSocketServer.start_link([element: self()] ++ opts)
-
-          [setup: :incomplete]
-      end
-
-    {actions, %{tracks: %{}}}
+  def handle_init(_ctx, opts) do
+    spec = child(:webrtc, %ExWebRTCSource{signaling_channel: opts.signaling_channel})
+    {[spec: spec], %{tracks: %{}}}
   end
 
   @impl true
-  def handle_info({:signaling, signaling}, _ctx, state) do
-    {[spec: child(:webrtc, %ExWebRTCSource{signaling_channel: signaling}), setup: :complete],
-     state}
+  def handle_setup(_ctx, state) do
+    {[setup: :incomplete], state}
   end
 
   @impl true
@@ -57,6 +41,11 @@ defmodule Membrane.WebRTC.Source do
       end
 
     {[spec: spec], state}
+  end
+
+  @impl true
+  def handle_child_notification(:ready, :webrtc, _ctx, state) do
+    {[setup: :complete], state}
   end
 
   @impl true
