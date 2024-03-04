@@ -51,11 +51,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   @impl true
   def handle_playing(_ctx, state) do
     {:ok, pc} =
-      PeerConnection.start_link(
+      PeerConnection.start(
         ice_servers: @ice_servers,
         video_codecs: @video_codecs,
         audio_codecs: @audio_codecs
       )
+
+    Process.monitor(pc)
 
     Process.monitor(state.signaling.pid)
     send(state.signaling.pid, {:register_element, self()})
@@ -152,8 +154,22 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         ctx,
         %{signaling: %{pid: signaling_pid}} = state
       ) do
-    PeerConnection.close(state.pc)
+    # PeerConnection.close(state.pc)
 
+    handle_close(ctx, state)
+  end
+
+  @impl true
+  def handle_info(
+        {:DOWN, _monitor, :process, pc, _reason},
+        ctx,
+        %{pc: pc} = state
+      ) do
+    handle_close(ctx, state)
+  end
+
+  defp handle_close(%{playback: :playing} = ctx, %{status: status} = state)
+       when status != :closed do
     actions =
       ctx.pads
       |> Map.values()
@@ -161,5 +177,9 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       |> Enum.map(&{:end_of_stream, &1.ref})
 
     {actions, %{state | status: :closed}}
+  end
+
+  defp handle_close(_ctx, state) do
+    {[], %{state | status: :closed}}
   end
 end

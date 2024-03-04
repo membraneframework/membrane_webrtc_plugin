@@ -11,48 +11,6 @@ Mix.install([
   {:jason, "~> 1.4.0"}
 ])
 
-defmodule Example.Router do
-  use Plug.Router
-
-  plug(Plug.Static, at: "/", from: "assets")
-  plug(:match)
-  plug(:dispatch)
-
-  get "/ws" do
-    WebSockAdapter.upgrade(conn, Example.PeerHandler, %{}, [])
-  end
-
-  match _ do
-    send_resp(conn, 404, "not found")
-  end
-end
-
-defmodule Example.PeerHandler do
-  @behaviour WebSock
-
-  alias ExWebRTC.{ICECandidate, SessionDescription}
-  alias Membrane.WebRTC.SignalingChannel
-
-  @impl true
-  def init(_opts) do
-    signaling = SignalingChannel.new(:json)
-    {:ok, _supervisor, pipeline} = Membrane.Pipeline.start(Example.Pipeline, signaling)
-    {:ok, %{signaling: signaling, pipeline: pipeline}}
-  end
-
-  @impl true
-  def handle_in({message, opcode: :text}, state) do
-    SignalingChannel.signal(state.signaling, message)
-    {:ok, state}
-  end
-
-  @impl true
-  def handle_info({SignalingChannel, message}, state) do
-    IO.puts(message)
-    {:push, {:text, message}, state}
-  end
-end
-
 defmodule Example.Pipeline do
   use Membrane.Pipeline
 
@@ -62,7 +20,7 @@ defmodule Example.Pipeline do
   def handle_init(_ctx, signaling) do
     spec =
       [
-        child(:webrtc, %WebRTC.Source{signaling_channel: signaling}),
+        child(:webrtc, %WebRTC.Source{signaling_channel: {:websocket, port: 8829}}),
         child(:matroska, Membrane.Matroska.Muxer)
         |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"}),
         get_child(:webrtc)
@@ -106,6 +64,6 @@ end
 
 Logger.configure(level: :debug)
 
-{:ok, _bandit} = Bandit.start_link(plug: Example.Router, ip: {127, 0, 0, 1}, port: 8829)
+Membrane.Pipeline.start_link(Example.Pipeline)
 
 Process.sleep(:infinity)
