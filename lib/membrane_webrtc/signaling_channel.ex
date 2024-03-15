@@ -1,13 +1,16 @@
 defmodule Membrane.WebRTC.SignalingChannel do
   use GenServer
 
+  require Logger
+
   alias ExWebRTC.{ICECandidate, SessionDescription}
 
   @enforce_keys [:pid]
   defstruct @enforce_keys
 
-  def new(mode, pid \\ self()) do
-    {:ok, pid} = GenServer.start_link(__MODULE__, %{mode: mode, peer_pid: pid})
+  def new(opts \\ []) do
+    opts = Keyword.validate!(opts, message_format: :term, peer_pid: self())
+    {:ok, pid} = GenServer.start_link(__MODULE__, opts)
     %__MODULE__{pid: pid}
   end
 
@@ -21,8 +24,16 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   @impl true
-  def init(%{mode: mode, peer_pid: peer_pid}) do
-    {:ok, %{peer_pid: peer_pid, mode: mode, element_pid: nil, msgs_from_peer: []}}
+  def init(opts) do
+    state = %{
+      peer_pid: opts[:peer_pid],
+      message_format: opts[:message_format],
+      element_pid: nil,
+      msgs_from_peer: []
+    }
+
+    Process.monitor(state.peer_pid)
+    {:ok, state}
   end
 
   @impl true
@@ -56,17 +67,26 @@ defmodule Membrane.WebRTC.SignalingChannel do
 
   @impl true
   def handle_info(
-        {:DOWN, _monitor, element_pid, :process, reason},
+        {:DOWN, _monitor, :process, element_pid, reason},
         %{element_pid: element_pid} = state
       ) do
     {:stop, reason, state}
   end
 
-  defp send_peer(message, %{mode: :term} = state) do
-    send(state.peer_pid, {__MODULE__, message})
+  @impl true
+  def handle_info(
+        {:DOWN, _monitor, :process, peer_pid, _reason},
+        %{peer_pid: peer_pid} = state
+      ) do
+    {:stop, :normal, state}
   end
 
-  defp send_peer(message, %{mode: :json_data} = state) do
+  defp send_peer(message, %{message_format: :term} = state) do
+    Logger.warning(message)
+    send(state.peer_pid, {__MODULE__, self(), message})
+  end
+
+  defp send_peer(message, %{message_format: :json_data} = state) do
     json =
       case message do
         %ICECandidate{} ->
@@ -76,14 +96,15 @@ defmodule Membrane.WebRTC.SignalingChannel do
           %{"type" => "sdp_#{type}", "data" => SessionDescription.to_json(message)}
       end
 
-    send(state.peer_pid, {__MODULE__, json})
+    send(state.peer_pid, {__MODULE__, self(), json})
   end
 
-  defp send_element(message, %{mode: :term} = state) do
-    send(state.element_pid, {__MODULE__, message})
+  defp send_element(message, %{message_format: :term} = state) do
+    Logger.warning(message)
+    send(state.element_pid, {__MODULE__, self(), message})
   end
 
-  defp send_element(message, %{mode: :json_data} = state) do
+  defp send_element(message, %{message_format: :json_data} = state) do
     message =
       case message do
         %{"type" => "ice_candidate", "data" => candidate} -> ICECandidate.from_json(candidate)
@@ -91,6 +112,6 @@ defmodule Membrane.WebRTC.SignalingChannel do
         %{"type" => "sdp_answer", "data" => answer} -> SessionDescription.from_json(answer)
       end
 
-    send(state.element_pid, {__MODULE__, message})
+    send(state.element_pid, {__MODULE__, self(), message})
   end
 end

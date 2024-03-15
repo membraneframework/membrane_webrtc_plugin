@@ -1,14 +1,12 @@
+Logger.configure(level: :info)
+
 Mix.install([
   {:membrane_webrtc_plugin, path: "."},
   :membrane_file_plugin,
   :membrane_realtimer_plugin,
-  {:membrane_matroska_plugin, path: "../membrane_matroska_plugin"},
+  :membrane_matroska_plugin,
   :membrane_opus_plugin,
-  :membrane_h264_plugin,
-  {:plug, "~> 1.15.0"},
-  {:bandit, "~> 1.2.0"},
-  {:websock_adapter, "~> 0.5.0"},
-  {:jason, "~> 1.4.0"}
+  :membrane_h264_plugin
 ])
 
 defmodule Example.Pipeline do
@@ -20,17 +18,21 @@ defmodule Example.Pipeline do
   def handle_init(_ctx, opts) do
     spec =
       [
-        child(:webrtc, %WebRTC.Source{signaling_channel: {:websocket, port: opts[:port]}}),
-        child(:matroska, Membrane.Matroska.Muxer)
-        |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"}),
+        child(:webrtc, %WebRTC.Source{
+          signaling: {:websocket, port: opts[:port]}
+          # video_codec: :h264
+        }),
+        child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
-        |> via_out(Pad.ref(:output, :audio))
+        |> via_out(:output, options: [kind: :audio])
         |> child(Membrane.Opus.Parser)
         |> get_child(:matroska),
         get_child(:webrtc)
-        |> via_out(Pad.ref(:output, :video))
-        |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
-        |> get_child(:matroska)
+        |> via_out(:output, options: [kind: :video])
+        # |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
+        |> get_child(:matroska),
+        get_child(:matroska)
+        |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"})
       ]
 
     {[spec: spec], %{}}
@@ -45,15 +47,11 @@ defmodule Example.Pipeline do
   def handle_element_end_of_stream(_element, _pad, _ctx, state) do
     {[], state}
   end
-
-  @impl true
-  def handle_terminate_request(_ctx, state) do
-    {[], state}
-  end
 end
 
-Logger.configure(level: :debug)
+{:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
+Process.monitor(supervisor)
 
-Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
-
-Process.sleep(:infinity)
+receive do
+  {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok
+end

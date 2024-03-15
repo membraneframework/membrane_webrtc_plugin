@@ -1,5 +1,5 @@
 defmodule Membrane.WebRTC.ExWebRTCSink do
-  use Membrane.Endpoint
+  use Membrane.Sink
 
   require Membrane.Logger
 
@@ -7,44 +7,17 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     ICECandidate,
     MediaStreamTrack,
     PeerConnection,
-    RTPCodecParameters,
     SessionDescription
   }
 
-  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer, Utils}
 
-  def_options signaling_channel: [], tracks: []
+  def_options signaling: [], tracks: [], video_codec: []
 
   def_input_pad :input,
     accepted_format: _any,
     availability: :on_request,
     options: [kind: []]
-
-  def_output_pad :output,
-    accepted_format: Membrane.RTP,
-    availability: :on_request,
-    flow_control: :push
-
-  @ice_servers [
-    %{urls: "stun:stun.l.google.com:19302"}
-  ]
-
-  @video_codecs [
-    %RTPCodecParameters{
-      payload_type: 102,
-      mime_type: "video/H264",
-      clock_rate: 90_000
-    }
-  ]
-
-  @audio_codecs [
-    %RTPCodecParameters{
-      payload_type: 111,
-      mime_type: "audio/opus",
-      clock_rate: 48_000,
-      channels: 2
-    }
-  ]
 
   @impl true
   def handle_init(_ctx, opts) do
@@ -53,8 +26,11 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        pc: nil,
        input_tracks: %{},
        awaiting_tracks: Enum.map(opts.tracks, &%{kind: &1, id: nil}),
-       signaling: opts.signaling_channel,
-       status: :init
+       signaling: opts.signaling,
+       status: :init,
+       audio_params: Utils.codec_params(:opus),
+       video_params: Utils.codec_params(opts.video_codec),
+       ice_servers: Utils.ice_servers()
      }}
   end
 
@@ -81,13 +57,20 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     %{awaiting_tracks: awaiting_tracks, input_tracks: input_tracks} = state
     track = Enum.find(awaiting_tracks, &(&1.kind == kind))
     awaiting_tracks = List.delete(awaiting_tracks, track)
-    input_tracks = Map.put(input_tracks, pad, track.id)
+
+    params =
+      case track.kind do
+        :audio -> state.audio_params
+        :video -> state.video_params
+      end
+
+    input_tracks = Map.put(input_tracks, pad, {track.id, params})
     state = %{state | awaiting_tracks: awaiting_tracks, input_tracks: input_tracks}
     {[], state}
   end
 
   @impl true
-  def handle_buffer(pad, buffer, _ctx, %{status: :connected} = state) do
+  def handle_buffer(pad, buffer, _ctx, state) do
     send_buffer(pad, buffer, state)
     {[], state}
   end
@@ -116,18 +99,19 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({:ex_webrtc, _from, _message}, _ctx, state) do
+  def handle_info({:ex_webrtc, _from, message}, _ctx, state) do
+    Membrane.Logger.warning("Unexpected message: #{inspect(message)}")
     {[], state}
   end
 
   @impl true
-  def handle_info({SignalingChannel, %SessionDescription{type: :answer} = sdp}, _ctx, state) do
+  def handle_info({SignalingChannel, _pid, %SessionDescription{type: :answer} = sdp}, _ctx, state) do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
     {[], state}
   end
 
   @impl true
-  def handle_info({SignalingChannel, %ICECandidate{} = candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate}, _ctx, state) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end
@@ -135,26 +119,18 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   @impl true
   def handle_info(
         {:DOWN, _monitor, :process, signaling_pid, _reason},
-        ctx,
+        _ctx,
         %{signaling: %{pid: signaling_pid}} = state
       ) do
-    PeerConnection.close(state.pc)
-
-    actions =
-      ctx.pads
-      |> Map.values()
-      |> Enum.filter(&(&1.direction == :output))
-      |> Enum.map(&{:end_of_stream, &1.ref})
-
-    {actions, %{state | status: :closed}}
+    {[], %{state | status: :closed}}
   end
 
   defp start_pc(state) do
     {:ok, pc} =
       PeerConnection.start_link(
-        ice_servers: @ice_servers,
-        video_codecs: @video_codecs,
-        audio_codecs: @audio_codecs
+        ice_servers: state.ice_servers,
+        video_codecs: [state.video_params],
+        audio_codecs: [state.audio_params]
       )
 
     Process.monitor(state.signaling.pid)
@@ -175,16 +151,21 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   defp send_buffer(pad, buffer, state) do
+    {id, params} = state.input_tracks[pad]
+
     timestamp =
-      Membrane.Time.divide_by_timebase(buffer.pts, Ratio.new(Membrane.Time.second(), 90_000))
+      Membrane.Time.divide_by_timebase(
+        buffer.pts,
+        Ratio.new(Membrane.Time.second(), params.clock_rate)
+      )
 
     packet =
       ExRTP.Packet.new(buffer.payload,
-        payload_type: 96,
+        payload_type: params.payload_type,
         timestamp: timestamp,
-        marker: buffer.metadata.rtp.marker
+        marker: buffer.metadata[:rtp][:marker] || false
       )
 
-    PeerConnection.send_rtp(state.pc, state.input_tracks[pad], packet)
+    PeerConnection.send_rtp(state.pc, id, packet)
   end
 end

@@ -37,13 +37,19 @@ defmodule Membrane.Template.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 1.0"},
-      {:ex_webrtc, "~> 0.1.0"},
+      # {:ex_webrtc, "~> 0.1.0"},
+      {:ex_webrtc, path: "../ex_webrtc"},
       # {:ex_webrtc, github: "elixir-webrtc/ex_webrtc"},
       {:membrane_rtp_plugin, ">= 0.0.0"},
       {:membrane_rtp_h264_plugin, ">= 0.0.0"},
+      {:membrane_rtp_vp8_plugin, ">= 0.0.0"},
       {:membrane_rtp_opus_plugin, ">= 0.0.0"},
       {:bandit, ">= 0.0.0"},
       {:websock_adapter, "~> 0.5.0"},
+      {:membrane_matroska_plugin, ">= 0.0.0", only: :test},
+      {:membrane_file_plugin, ">= 0.0.0", only: :test},
+      {:membrane_realtimer_plugin, ">= 0.0.0", only: :test},
+      {:membrane_opus_plugin, ">= 0.0.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
       {:credo, ">= 0.0.0", only: :dev, runtime: false}

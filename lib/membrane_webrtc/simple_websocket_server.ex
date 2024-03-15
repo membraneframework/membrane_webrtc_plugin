@@ -48,13 +48,13 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   defmodule PeerHandler do
     @behaviour WebSock
 
-    alias ExWebRTC.{ICECandidate, SessionDescription}
     alias Membrane.WebRTC.SignalingChannel
 
     @impl true
     def init(opts) do
-      signaling = SignalingChannel.new(:json_data)
+      signaling = SignalingChannel.new(message_format: :json_data)
       send(opts.element, {:signaling, signaling})
+      Process.send_after(self(), :ping, 30_000)
       {:ok, %{signaling: signaling}}
     end
 
@@ -65,8 +65,14 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     end
 
     @impl true
-    def handle_info({SignalingChannel, message}, state) do
+    def handle_info({SignalingChannel, _pid, message}, state) do
       {:push, {:text, Jason.encode!(message)}, state}
+    end
+
+    @impl true
+    def handle_info(:ping, state) do
+      Process.send_after(self(), :ping, 30_000)
+      {:push, {:text, Jason.encode!(%{type: "ping", data: ""})}, state}
     end
   end
 end

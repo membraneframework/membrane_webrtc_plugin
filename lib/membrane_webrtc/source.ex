@@ -3,17 +3,21 @@ defmodule Membrane.WebRTC.Source do
 
   alias Membrane.WebRTC.ExWebRTCSource
 
-  def_options signaling_channel: []
+  def_options signaling: [],
+              video_codec: [default: :vp8],
+              depayload_rtp: [default: true]
 
   def_output_pad :output,
     accepted_format: _any,
     availability: :on_request,
-    options: [depayload_rtp: [default: true]]
+    options: [kind: [default: nil]]
 
   @impl true
   def handle_init(_ctx, opts) do
-    spec = child(:webrtc, %ExWebRTCSource{signaling_channel: opts.signaling_channel})
-    {[spec: spec], %{tracks: %{}}}
+    {signaling, opts} = opts |> Map.from_struct() |> Map.pop!(:signaling)
+    spec = child(:webrtc, %ExWebRTCSource{signaling: signaling, video_codec: opts.video_codec})
+    state = %{tracks: %{}} |> Map.merge(opts)
+    {[spec: spec], state}
   end
 
   @impl true
@@ -22,19 +26,25 @@ defmodule Membrane.WebRTC.Source do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:output, id) = pad_ref, ctx, state) do
-    kind =
-      cond do
-        id in [:audio, :video] -> id
-        track = state.tracks[id] -> track.kind
-        true -> raise ArgumentError
-      end
+  def handle_pad_added(Pad.ref(:output, pad_id) = pad_ref, ctx, state) do
+    %{kind: kind} = ctx.pad_options
+    track = state.tracks[pad_id]
+
+    if ctx.playback == :stopped and kind == nil do
+      raise "Option `kind` not specified for pad #{inspect(pad_ref)}"
+    end
+
+    if ctx.playback == :playing and track == nil do
+      raise "Unknown track id #{inspect(pad_id)}, cannot link pad #{inspect(pad_ref)}"
+    end
+
+    kind = kind || track.kind
 
     spec =
-      if ctx.pad_options.depayload_rtp do
+      if state.depayload_rtp do
         get_child(:webrtc)
-        |> via_out(pad_ref)
-        |> child(get_depayloader(kind))
+        |> via_out(pad_ref, options: [kind: kind])
+        |> child(get_depayloader(kind, state))
         |> bin_output(pad_ref)
       else
         get_child(:webrtc) |> via_out(pad_ref) |> bin_output(pad_ref)
@@ -54,11 +64,15 @@ defmodule Membrane.WebRTC.Source do
     {[notify_parent: {:new_track, track}], state}
   end
 
-  defp get_depayloader(:audio) do
+  defp get_depayloader(:audio, _state) do
     %Membrane.RTP.DepayloaderBin{depayloader: Membrane.RTP.Opus.Depayloader, clock_rate: 48_000}
   end
 
-  defp get_depayloader(:video) do
+  defp get_depayloader(:video, %{video_codec: :vp8}) do
+    %Membrane.RTP.DepayloaderBin{depayloader: Membrane.RTP.VP8.Depayloader, clock_rate: 96_000}
+  end
+
+  defp get_depayloader(:video, %{video_codec: :h264}) do
     %Membrane.RTP.DepayloaderBin{depayloader: Membrane.RTP.H264.Depayloader, clock_rate: 96_000}
   end
 end

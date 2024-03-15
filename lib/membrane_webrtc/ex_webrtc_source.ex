@@ -1,40 +1,18 @@
 defmodule Membrane.WebRTC.ExWebRTCSource do
-  use Membrane.Endpoint
+  use Membrane.Source
 
   require Membrane.Logger
 
-  alias ExWebRTC.ICECandidate
-  alias ExWebRTC.SessionDescription
-  alias ExWebRTC.{PeerConnection, RTPCodecParameters}
-  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer}
+  alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
+  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer, Utils}
 
-  def_options signaling_channel: []
+  def_options signaling: [], video_codec: []
 
   def_output_pad :output,
     accepted_format: Membrane.RTP,
     availability: :on_request,
-    flow_control: :push
-
-  @ice_servers [
-    %{urls: "stun:stun.l.google.com:19302"}
-  ]
-
-  @video_codecs [
-    %RTPCodecParameters{
-      payload_type: 102,
-      mime_type: "video/H264",
-      clock_rate: 90_000
-    }
-  ]
-
-  @audio_codecs [
-    %RTPCodecParameters{
-      payload_type: 111,
-      mime_type: "audio/opus",
-      clock_rate: 48_000,
-      channels: 2
-    }
-  ]
+    flow_control: :push,
+    options: [kind: [default: nil]]
 
   @impl true
   def handle_init(_ctx, opts) do
@@ -42,9 +20,12 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
      %{
        pc: nil,
        output_tracks: %{},
-       awaiting_outputs: %{},
-       signaling: opts.signaling_channel,
-       status: :init
+       awaiting_outputs: [],
+       signaling: opts.signaling,
+       status: :init,
+       audio_params: Utils.codec_params(:opus),
+       video_params: Utils.codec_params(opts.video_codec),
+       ice_servers: Utils.ice_servers()
      }}
   end
 
@@ -68,9 +49,9 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   def handle_playing(_ctx, state) do
     {:ok, pc} =
       PeerConnection.start(
-        ice_servers: @ice_servers,
-        video_codecs: @video_codecs,
-        audio_codecs: @audio_codecs
+        ice_servers: state.ice_servers,
+        video_codecs: [state.video_params],
+        audio_codecs: [state.audio_params]
       )
 
     Process.monitor(pc)
@@ -82,8 +63,9 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:output, kind) = pad, %{playback: :stopped}, state) do
-    state = put_in(state, [:awaiting_outputs, kind], pad)
+  def handle_pad_added(Pad.ref(:output, _id) = pad, %{playback: :stopped} = ctx, state) do
+    %{kind: kind} = ctx.pad_options
+    state = %{state | awaiting_outputs: state.awaiting_outputs ++ [{kind, pad}]}
     {[], state}
   end
 
@@ -107,11 +89,14 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:track, track}}, _ctx, state) do
-    if pad = state.awaiting_outputs[track.kind] do
+    {result, awaiting_outputs} = List.keytake(state.awaiting_outputs, track.kind, 0)
+
+    if result do
+      {_kind, pad} = result
+
       state =
-        state
+        %{state | awaiting_outputs: awaiting_outputs}
         |> put_in([:output_tracks, track.id], {:connected, pad})
-        |> Bunch.Access.delete_in([:awaiting_outputs, track.kind])
 
       {[stream_format: {pad, %Membrane.RTP{}}], state}
     else
@@ -150,12 +135,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({:ex_webrtc, _from, _message}, _ctx, state) do
+  def handle_info({:ex_webrtc, _from, message}, _ctx, state) do
+    Membrane.Logger.warning("Unexpected message: #{inspect(message)}")
     {[], state}
   end
 
   @impl true
-  def handle_info({SignalingChannel, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
+  def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
     {:ok, answer} = PeerConnection.create_answer(state.pc)
     :ok = PeerConnection.set_local_description(state.pc, answer)
@@ -164,7 +150,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({SignalingChannel, %ICECandidate{} = candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate}, _ctx, state) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end
@@ -175,8 +161,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         ctx,
         %{signaling: %{pid: signaling_pid}} = state
       ) do
-    # PeerConnection.close(state.pc)
-
     handle_close(ctx, state)
   end
 
