@@ -59,6 +59,16 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   @impl true
+  def handle_child_notification({:new_tracks, tracks}, :webrtc, _ctx, state) do
+    {[notify_parent: {:new_tracks, tracks}], state}
+  end
+
+  @impl true
+  def handle_parent_notification({:add_tracks, tracks}, _ctx, state) do
+    {[notify_child: {:webrtc, {:add_tracks, tracks}}], state}
+  end
+
+  @impl true
   def handle_element_end_of_stream(:webrtc, Pad.ref(:input, id), _ctx, state) do
     {[notify_parent: {:end_of_stream, id}], state}
   end

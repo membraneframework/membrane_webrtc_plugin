@@ -82,7 +82,6 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   defp send_peer(message, %{message_format: :term} = state) do
-    Logger.warning(message)
     send(state.peer_pid, {__MODULE__, self(), message})
   end
 
@@ -100,7 +99,6 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   defp send_element(message, %{message_format: :term} = state) do
-    Logger.warning(message)
     send(state.element_pid, {__MODULE__, self(), message})
   end
 

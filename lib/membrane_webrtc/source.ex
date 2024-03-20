@@ -59,9 +59,10 @@ defmodule Membrane.WebRTC.Source do
   end
 
   @impl true
-  def handle_child_notification({:new_track, track}, :webrtc, _ctx, state) do
-    state = put_in(state, [:tracks, track.id], track)
-    {[notify_parent: {:new_track, track}], state}
+  def handle_child_notification({:new_tracks, tracks}, :webrtc, _ctx, state) do
+    tracks_map = Map.new(tracks, &{&1.id, &1})
+    state = %{state | tracks: Map.merge(state.tracks, tracks_map)}
+    {[notify_parent: {:new_tracks, tracks}], state}
   end
 
   defp get_depayloader(:audio, _state) do
