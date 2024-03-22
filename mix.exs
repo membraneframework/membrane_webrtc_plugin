@@ -1,8 +1,8 @@
-defmodule Membrane.Template.Mixfile do
+defmodule Membrane.WebRTC.Plugin.Mixfile do
   use Mix.Project
 
   @version "0.1.0"
-  @github_url "https://github.com/membraneframework/membrane_template_plugin"
+  @github_url "https://github.com/membraneframework/membrane_webrtc_plugin"
 
   def project do
     [
@@ -15,11 +15,11 @@ defmodule Membrane.Template.Mixfile do
       dialyzer: dialyzer(),
 
       # hex
-      description: "Template Plugin for Membrane Framework",
+      description: "Membrane WebRTC plugin",
       package: package(),
 
       # docs
-      name: "Membrane Template plugin",
+      name: "Membrane WebRTC plugin",
       source_url: @github_url,
       docs: docs()
     ]
@@ -38,8 +38,6 @@ defmodule Membrane.Template.Mixfile do
     [
       {:membrane_core, "~> 1.0"},
       {:ex_webrtc, "~> 0.1.0"},
-      # {:ex_webrtc, path: "../ex_webrtc"},
-      # {:ex_webrtc, github: "elixir-webrtc/ex_webrtc"},
       {:membrane_rtp_plugin, ">= 0.0.0"},
       {:membrane_rtp_h264_plugin, ">= 0.0.0"},
       {:membrane_rtp_vp8_plugin, ">= 0.0.0"},
@@ -86,7 +84,7 @@ defmodule Membrane.Template.Mixfile do
       extras: ["README.md", "LICENSE"],
       formatters: ["html"],
       source_ref: "v#{@version}",
-      nest_modules_by_prefix: [Membrane.Template]
+      nest_modules_by_prefix: [Membrane.WebRTC]
     ]
   end
 end

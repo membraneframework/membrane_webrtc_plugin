@@ -1,17 +1,36 @@
 defmodule Membrane.WebRTC.SimpleWebSocketServer do
-  require Logger
+  @moduledoc false
 
+  alias Membrane.WebRTC.SignalingChannel
+
+  @type option :: {:ip, :inet.ip_address()} | {:port, :inet.port_number()}
+
+  @spec child_spec([option | {:signaling, SignalingChannel.t()}]) :: Supervisor.child_spec()
   def child_spec(opts) do
+    opts = opts |> Keyword.validate!([:signaling, :port, ip: {127, 0, 0, 1}]) |> Map.new()
+
     Supervisor.child_spec(
       {Bandit,
-       plug: {__MODULE__.Router, %{conn_cnt: :atomics.new(1, []), element: opts[:element]}},
-       ip: opts[:ip] || {127, 0, 0, 1},
-       port: opts[:port]},
+       plug: {__MODULE__.Router, %{conn_cnt: :atomics.new(1, []), signaling: opts.signaling}},
+       ip: opts.ip,
+       port: opts.port},
       []
     )
   end
 
+  @spec start_link_supervised(pid, [option]) :: SignalingChannel.t()
+  def start_link_supervised(utility_supervisor, opts) do
+    signaling = SignalingChannel.new()
+    opts = [signaling: signaling] ++ opts
+
+    {:ok, _pid} =
+      Membrane.UtilitySupervisor.start_link_child(utility_supervisor, {__MODULE__, opts})
+
+    signaling
+  end
+
   defmodule Router do
+    @moduledoc false
     use Plug.Router
 
     plug(:match)
@@ -24,7 +43,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
         WebSockAdapter.upgrade(
           conn,
           Membrane.WebRTC.SimpleWebSocketServer.PeerHandler,
-          %{element: conn.private.element},
+          %{signaling: conn.private.signaling},
           []
         )
       else
@@ -40,22 +59,25 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     def call(conn, opts) do
       conn
       |> put_private(:conn_cnt, opts.conn_cnt)
-      |> put_private(:element, opts.element)
+      |> put_private(:signaling, opts.signaling)
       |> super(opts)
     end
   end
 
   defmodule PeerHandler do
+    @moduledoc false
+
     @behaviour WebSock
+
+    require Logger
 
     alias Membrane.WebRTC.SignalingChannel
 
     @impl true
     def init(opts) do
-      signaling = SignalingChannel.new(message_format: :json_data)
-      send(opts.element, {:signaling, signaling})
+      SignalingChannel.register_peer(opts.signaling, message_format: :json_data)
       Process.send_after(self(), :ping, 30_000)
-      {:ok, %{signaling: signaling}}
+      {:ok, %{signaling: opts.signaling}}
     end
 
     @impl true

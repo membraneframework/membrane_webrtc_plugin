@@ -1,4 +1,6 @@
 defmodule Membrane.WebRTC.ExWebRTCSink do
+  @moduledoc false
+
   use Membrane.Sink
 
   require Membrane.Logger
@@ -12,7 +14,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer, Utils}
 
-  def_options signaling: [], tracks: [], video_codec: []
+  def_options signaling: [], tracks: [], video_codec: [], ice_servers: []
 
   def_input_pad :input,
     accepted_format: _any,
@@ -32,25 +34,29 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        status: :init,
        audio_params: Utils.codec_params(:opus),
        video_params: Utils.codec_params(opts.video_codec),
-       ice_servers: Utils.ice_servers()
+       ice_servers: opts.ice_servers
      }}
   end
 
   @impl true
   def handle_setup(ctx, state) do
-    case state.signaling do
-      %SignalingChannel{} ->
-        state = start_pc(state)
-        {[setup: :incomplete], state}
+    signaling =
+      with %{signaling: {:websocket, opts}} <- state do
+        SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
+      end
 
-      {:websocket, opts} ->
-        Membrane.UtilitySupervisor.start_link_child(
-          ctx.utility_supervisor,
-          {SimpleWebSocketServer, [element: self()] ++ opts}
-        )
+    {:ok, pc} =
+      PeerConnection.start_link(
+        ice_servers: state.ice_servers,
+        video_codecs: [state.video_params],
+        audio_codecs: [state.audio_params]
+      )
 
-        {[setup: :incomplete], state}
-    end
+    Process.monitor(signaling.pid)
+    SignalingChannel.register_element(signaling)
+    state = %{state | pc: pc, status: :connecting, signaling: signaling}
+    state = maybe_negotiate_tracks(state)
+    {[setup: :incomplete], state}
   end
 
   @impl true
@@ -98,19 +104,13 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({:signaling, signaling}, _ctx, state) do
-    state = start_pc(%{state | signaling: signaling})
-    {[], state}
-  end
-
-  @impl true
   def handle_info({:ex_webrtc, _from, _msg}, _ctx, %{status: :closed} = state) do
     {[], state}
   end
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:ice_candidate, candidate}}, _ctx, state) do
-    send(state.signaling.pid, {:element, candidate})
+    SignalingChannel.signal(state.signaling, candidate)
     {[], state}
   end
 
@@ -162,20 +162,6 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     {[], %{state | status: :closed}}
   end
 
-  defp start_pc(state) do
-    {:ok, pc} =
-      PeerConnection.start_link(
-        ice_servers: state.ice_servers,
-        video_codecs: [state.video_params],
-        audio_codecs: [state.audio_params]
-      )
-
-    state = %{state | pc: pc, status: :connecting}
-    Process.monitor(state.signaling.pid)
-    send(state.signaling.pid, {:register_element, self()})
-    maybe_negotiate_tracks(state)
-  end
-
   defp maybe_negotiate_tracks(%{negotiating_tracks: negotiating_tracks} = state)
        when negotiating_tracks != [] do
     state
@@ -195,7 +181,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     {:ok, offer} = PeerConnection.create_offer(state.pc)
     :ok = PeerConnection.set_local_description(state.pc, offer)
-    send(state.signaling.pid, {:element, offer})
+    SignalingChannel.signal(state.signaling, offer)
     %{state | negotiating_tracks: negotiating_tracks, queued_tracks: []}
   end
 

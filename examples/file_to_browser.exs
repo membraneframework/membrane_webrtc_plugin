@@ -1,7 +1,14 @@
+# This example reads a short part of the Big Buck Bunny movie
+# from an `.mkv` file and streams it to a browser.
+# To run it, type `elixir file_to_browser.exs` and open
+# http://localhost:8000/index.html in your browser.
+# Note that due to browsers' policy, you need to manually unmute
+# audio in the player to hear the sound.
+
 Logger.configure(level: :info)
 
 Mix.install([
-  {:membrane_webrtc_plugin, path: "."},
+  {:membrane_webrtc_plugin, path: "#{__DIR__}/.."},
   :membrane_file_plugin,
   :membrane_realtimer_plugin,
   :membrane_matroska_plugin,
@@ -16,7 +23,7 @@ defmodule Example.Pipeline do
   @impl true
   def handle_init(_ctx, opts) do
     spec =
-      child(%Membrane.File.Source{location: "bbb_vp8.mkv"})
+      child(%Membrane.File.Source{location: "#{__DIR__}/assets/bbb_vp8.mkv"})
       |> child(:demuxer, Membrane.Matroska.Demuxer)
 
     {[spec: spec], %{audio_track: nil, video_track: nil, port: opts[:port]}}

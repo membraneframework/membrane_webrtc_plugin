@@ -1,4 +1,6 @@
 defmodule Membrane.WebRTC.ExWebRTCSource do
+  @moduledoc false
+
   use Membrane.Source
 
   require Membrane.Logger
@@ -6,7 +8,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
   alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer, Utils}
 
-  def_options signaling: [], video_codec: []
+  def_options signaling: [], video_codec: [], ice_servers: []
 
   def_output_pad :output,
     accepted_format: Membrane.RTP,
@@ -26,24 +28,18 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        status: :init,
        audio_params: Utils.codec_params(:opus),
        video_params: Utils.codec_params(opts.video_codec),
-       ice_servers: Utils.ice_servers()
+       ice_servers: opts.ice_servers
      }}
   end
 
   @impl true
   def handle_setup(ctx, state) do
-    case state.signaling do
-      %SignalingChannel{} ->
-        {[notify_parent: :ready], state}
+    signaling =
+      with %{signaling: {:websocket, opts}} <- state do
+        SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
+      end
 
-      {:websocket, opts} ->
-        Membrane.UtilitySupervisor.start_link_child(
-          ctx.utility_supervisor,
-          {SimpleWebSocketServer, [element: self()] ++ opts}
-        )
-
-        {[setup: :incomplete], state}
-    end
+    {[], %{state | signaling: signaling}}
   end
 
   @impl true
@@ -56,9 +52,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       )
 
     Process.monitor(pc)
-
     Process.monitor(state.signaling.pid)
-    send(state.signaling.pid, {:register_element, self()})
+    SignalingChannel.register_element(state.signaling)
 
     {[], %{state | pc: pc, status: :connecting}}
   end
@@ -77,11 +72,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     state = put_in(state, [:output_tracks, pad_id], {:connected, pad})
     maybe_answer(state)
     {[stream_format: {pad, %Membrane.RTP{}}, buffer: {pad, buffers}], state}
-  end
-
-  @impl true
-  def handle_info({:signaling, signaling}, _ctx, state) do
-    {[setup: :complete, notify_parent: :ready], %{state | signaling: signaling}}
   end
 
   @impl true
@@ -125,7 +115,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:ice_candidate, candidate}}, _ctx, state) do
-    send(state.signaling.pid, {:element, candidate})
+    SignalingChannel.signal(state.signaling, candidate)
     {[], state}
   end
 
@@ -142,8 +132,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
+    Membrane.Logger.debug("Received SDP offer")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
-    IO.inspect(:set_remote_description)
     send(self(), :sdp_applied)
     {[], state}
   end
@@ -192,7 +182,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        end) do
       {:ok, answer} = PeerConnection.create_answer(state.pc)
       :ok = PeerConnection.set_local_description(state.pc, answer)
-      send(state.signaling.pid, {:element, answer})
+      SignalingChannel.signal(state.signaling, answer)
     end
 
     :ok

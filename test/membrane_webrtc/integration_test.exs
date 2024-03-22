@@ -1,5 +1,6 @@
 defmodule Membrane.WebRTC.IntegrationTest do
   # Tests are split into submodules so that they run concurrently
+  # credo:disable-for-this-file Credo.Check.Readability.Specs
 
   import Membrane.ChildrenSpec
   import Membrane.Testing.Assertions
@@ -14,39 +15,6 @@ defmodule Membrane.WebRTC.IntegrationTest do
     import ExUnit.Assertions
 
     def fixture_processing_timeout, do: 30_000
-
-    def start_signaling_forwarder() do
-      test_process = self()
-
-      forwarder =
-        ExUnit.Callbacks.start_link_supervised!({
-          Task,
-          fn ->
-            send_signaling = SignalingChannel.new()
-            receive_signaling = SignalingChannel.new()
-            send(test_process, {send_signaling, receive_signaling})
-            forward_signaling_messages(send_signaling, receive_signaling)
-          end
-        })
-
-      assert_receive {send_signaling, receive_signaling}
-      {forwarder, send_signaling, receive_signaling}
-    end
-
-    defp forward_signaling_messages(%{pid: pid_a} = signaling_a, %{pid: pid_b} = signaling_b) do
-      receive do
-        :exit ->
-          :ok
-
-        message ->
-          case message do
-            {SignalingChannel, ^pid_a, msg} -> SignalingChannel.signal(signaling_b, msg)
-            {SignalingChannel, ^pid_b, msg} -> SignalingChannel.signal(signaling_a, msg)
-          end
-
-          forward_signaling_messages(signaling_a, signaling_b)
-      end
-    end
 
     def prepare_input(pipeline, opts) do
       demuxer_name = {:demuxer, make_ref()}
@@ -114,14 +82,12 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     @tag :tmp_dir
     test "send and receive a file", %{tmp_dir: tmp_dir} do
-      {signaling_forwarder, send_signaling, receive_signaling} = start_signaling_forwarder()
+      signaling = SignalingChannel.new()
       send_pipeline = Testing.Pipeline.start_link_supervised!()
-      prepare_input(send_pipeline, webrtc: %WebRTC.Sink{signaling: send_signaling})
+      prepare_input(send_pipeline, webrtc: %WebRTC.Sink{signaling: signaling})
       receive_pipeline = Testing.Pipeline.start_link_supervised!()
 
-      prepare_output(receive_pipeline, tmp_dir,
-        webrtc: %WebRTC.Source{signaling: receive_signaling}
-      )
+      prepare_output(receive_pipeline, tmp_dir, webrtc: %WebRTC.Source{signaling: signaling})
 
       assert_pipeline_notified(
         send_pipeline,
@@ -134,7 +100,6 @@ defmodule Membrane.WebRTC.IntegrationTest do
       # Time for the stream to arrive to the receiver
       Process.sleep(200)
       Testing.Pipeline.terminate(send_pipeline)
-      send(signaling_forwarder, :exit)
       assert_end_of_stream(receive_pipeline, {:audio_sink, _id}, :input, 1_000)
       assert_end_of_stream(receive_pipeline, {:video_sink, _id}, :input, 1_000)
       Testing.Pipeline.terminate(receive_pipeline)
@@ -148,19 +113,19 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     import Utils
 
+    @tag :dupa
     @tag :tmp_dir
     test "dynamically add new tracks", %{tmp_dir: tmp_dir} do
-      {signaling_forwarder, send_signaling, receive_signaling} = start_signaling_forwarder()
+      signaling = SignalingChannel.new()
 
       send_pipeline = Testing.Pipeline.start_link_supervised!()
-
-      prepare_input(send_pipeline, webrtc: %WebRTC.Sink{signaling: send_signaling})
+      prepare_input(send_pipeline, webrtc: %WebRTC.Sink{signaling: signaling})
 
       receive_pipeline = Testing.Pipeline.start_link_supervised!()
 
       prepare_output(receive_pipeline, tmp_dir,
         output_id: 1,
-        webrtc: %WebRTC.Source{signaling: receive_signaling}
+        webrtc: %WebRTC.Source{signaling: signaling}
       )
 
       assert_start_of_stream(receive_pipeline, {:audio_sink, 1}, :input)
@@ -201,7 +166,6 @@ defmodule Membrane.WebRTC.IntegrationTest do
       # Time for the stream to arrive to the receiver
       Process.sleep(200)
       Testing.Pipeline.terminate(send_pipeline)
-      send(signaling_forwarder, :exit)
 
       Enum.each([audio_sink: 1, video_sink: 1, audio_sink: 2, video_sink: 2], fn element ->
         assert_end_of_stream(receive_pipeline, ^element, :input, 1_000)

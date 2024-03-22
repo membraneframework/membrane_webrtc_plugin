@@ -1,7 +1,13 @@
+# This example receives audio and video from a browser via WebRTC
+# and saves it to a `recording.mkv` file.
+# To run it, type `elixir browser_to_file.exs` and open
+# http://localhost:8000/index.html in your browser. To finish recording,
+# click the `disconnect` button or close the tab.
+
 Logger.configure(level: :info)
 
 Mix.install([
-  {:membrane_webrtc_plugin, path: "."},
+  {:membrane_webrtc_plugin, path: "#{__DIR__}/.."},
   :membrane_file_plugin,
   :membrane_realtimer_plugin,
   :membrane_matroska_plugin,

@@ -1,8 +1,9 @@
 defmodule Membrane.WebRTC.Utils do
+  @moduledoc false
+
   alias ExWebRTC.RTPCodecParameters
 
-  def ice_servers, do: [%{urls: "stun:stun.l.google.com:19302"}]
-
+  @spec codec_params(:opus | :h264 | :vp8) :: RTPCodecParameters.t()
   def codec_params(:opus),
     do: %RTPCodecParameters{
       payload_type: 111,
@@ -16,12 +17,6 @@ defmodule Membrane.WebRTC.Utils do
       payload_type: 96,
       mime_type: "video/H264",
       clock_rate: 90_000
-      # sdp_fmtp_line: %ExSDP.Attribute.FMTP{
-      #   pt: 96,
-      #   level_asymmetry_allowed: true,
-      #   packetization_mode: 1,
-      #   profile_level_id: 0x42001F
-      # }
     }
 
   def codec_params(:vp8),
