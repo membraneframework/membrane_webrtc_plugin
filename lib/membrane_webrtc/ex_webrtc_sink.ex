@@ -128,6 +128,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @impl true
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :answer} = sdp}, _ctx, state) do
+    Membrane.Logger.debug("Received SDP answer")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
     %{negotiating_tracks: negotiating_tracks, negotiated_tracks: negotiated_tracks} = state

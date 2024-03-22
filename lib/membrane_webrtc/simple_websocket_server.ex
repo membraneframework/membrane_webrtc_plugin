@@ -1,4 +1,6 @@
 defmodule Membrane.WebRTC.SimpleWebSocketServer do
+  require Logger
+
   def child_spec(opts) do
     Supervisor.child_spec(
       {Bandit,
@@ -15,9 +17,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     plug(:match)
     plug(:dispatch)
 
-    plug(Plug.Static, at: "/", from: "assets")
-
-    get "/ws" do
+    get "/" do
       conn_cnt = :atomics.add_get(conn.private.conn_cnt, 1, 1)
 
       if conn_cnt == 1 do
@@ -73,6 +73,12 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     def handle_info(:ping, state) do
       Process.send_after(self(), :ping, 30_000)
       {:push, {:text, Jason.encode!(%{type: "ping", data: ""})}, state}
+    end
+
+    @impl true
+    def handle_info(message, state) do
+      Logger.debug("Ignoring unsupported message #{inspect(message)}")
+      {:ok, state}
     end
   end
 end

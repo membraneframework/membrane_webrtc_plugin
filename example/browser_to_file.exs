@@ -20,7 +20,6 @@ defmodule Example.Pipeline do
       [
         child(:webrtc, %WebRTC.Source{
           signaling: {:websocket, port: opts[:port]}
-          # video_codec: :h264
         }),
         child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
@@ -29,7 +28,6 @@ defmodule Example.Pipeline do
         |> get_child(:matroska),
         get_child(:webrtc)
         |> via_out(:output, options: [kind: :video])
-        # |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
         |> get_child(:matroska),
         get_child(:matroska)
         |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"})
@@ -51,6 +49,17 @@ end
 
 {:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
 Process.monitor(supervisor)
+
+:ok = :inets.start()
+
+{:ok, _server} =
+  :inets.start(:httpd,
+    bind_address: ~c"localhost",
+    port: 8000,
+    document_root: ~c"#{__DIR__}/assets/browser_to_file",
+    server_name: ~c"webrtc",
+    server_root: "/tmp"
+  )
 
 receive do
   {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok

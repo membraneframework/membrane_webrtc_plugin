@@ -143,6 +143,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   @impl true
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
+    IO.inspect(:set_remote_description)
     send(self(), :sdp_applied)
     {[], state}
   end

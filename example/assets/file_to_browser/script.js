@@ -1,12 +1,11 @@
+const videoPlayer = document.getElementById("videoPlayer");
 const pcConfig = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' },] };
-
 const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
-const ws = new WebSocket(`ws:localhost:8829/ws`);
-ws.onopen = _ => start_connection(ws);
+const ws = new WebSocket(`${proto}//${window.location.hostname}:8829`);
+ws.onopen = () => start_connection(ws);
 ws.onclose = event => console.log("WebSocket connection was terminated:", event);
 
 const start_connection = async (ws) => {
-  const videoPlayer = document.getElementById("videoPlayer");
   videoPlayer.srcObject = new MediaStream();
 
   const pc = new RTCPeerConnection(pcConfig);
