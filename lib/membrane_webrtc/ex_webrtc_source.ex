@@ -24,6 +24,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        output_tracks: %{},
        awaiting_outputs: [],
        tracks_to_notify: [],
+       awaiting_candidates: [],
        signaling: opts.signaling,
        status: :init,
        audio_params: Utils.codec_params(:opus),
@@ -70,7 +71,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     {:queue, queue} = state.output_tracks[pad_id]
     buffers = Enum.reverse(queue)
     state = put_in(state, [:output_tracks, pad_id], {:connected, pad})
-    maybe_answer(state)
+    state = maybe_answer(state)
     {[stream_format: {pad, %Membrane.RTP{}}, buffer: {pad, buffers}], state}
   end
 
@@ -140,13 +141,19 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate}, _ctx, state) do
-    :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
-    {[], state}
+    case PeerConnection.add_ice_candidate(state.pc, candidate) do
+      :ok ->
+        {[], state}
+
+      # Workaround for a bug in ex_webrtc that should be fixed in 0.2.0
+      {:error, :no_remote_description} ->
+        {[], %{state | awaiting_candidates: [candidate | state.awaiting_candidates]}}
+    end
   end
 
   @impl true
   def handle_info(:sdp_applied, _ctx, state) do
-    maybe_answer(state)
+    state = maybe_answer(state)
 
     actions =
       case state.tracks_to_notify do
@@ -182,10 +189,16 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        end) do
       {:ok, answer} = PeerConnection.create_answer(state.pc)
       :ok = PeerConnection.set_local_description(state.pc, answer)
-      SignalingChannel.signal(state.signaling, answer)
-    end
 
-    :ok
+      state.awaiting_candidates
+      |> Enum.reverse()
+      |> Enum.each(&(:ok = PeerConnection.add_ice_candidate(state.pc, &1)))
+
+      SignalingChannel.signal(state.signaling, answer)
+      %{state | awaiting_candidates: []}
+    else
+      state
+    end
   end
 
   defp handle_close(%{playback: :playing} = ctx, %{status: status} = state)

@@ -15,11 +15,8 @@ const start_connection = async (ws) => {
 
   pc.onicecandidate = event => {
     if (event.candidate === null) return;
-
-    setTimeout(() => {
-      console.log("Sent ICE candidate:", event.candidate);
-      ws.send(JSON.stringify({ type: "ice_candidate", data: event.candidate }));
-    }, 1000);
+    console.log("Sent ICE candidate:", event.candidate);
+    ws.send(JSON.stringify({ type: "ice_candidate", data: event.candidate }));
   };
 
   const localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
