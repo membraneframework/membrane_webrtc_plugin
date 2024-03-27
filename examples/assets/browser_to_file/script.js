@@ -3,14 +3,15 @@ const mediaConstraints = { video: true, audio: true }
 
 const proto = window.location.protocol === "https:" ? "wss:" : "ws:"
 const ws = new WebSocket(`${proto}//${window.location.hostname}:8829`);
-const conn_status = document.getElementById("status");
+const connStatus = document.getElementById("status");
 ws.onopen = _ => start_connection(ws);
 ws.onclose = event => {
-  conn_status.innerHTML = "Disconnected"
+  connStatus.innerHTML = "Disconnected"
   console.log("WebSocket connection was terminated:", event);
 }
 
 const start_connection = async (ws) => {
+  const localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
   const pc = new RTCPeerConnection(pcConfig);
 
   pc.onicecandidate = event => {
@@ -19,7 +20,17 @@ const start_connection = async (ws) => {
     ws.send(JSON.stringify({ type: "ice_candidate", data: event.candidate }));
   };
 
-  const localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+  pc.onconnectionstatechange = () => {
+    const button = document.createElement('button');
+    button.innerHTML = "Disconnect";
+    button.onclick = () => {
+      ws.close();
+      localStream.getTracks().forEach(track => track.stop())
+    }
+    connStatus.innerHTML = "Connected ";
+    connStatus.appendChild(button);
+  }
+
   for (const track of localStream.getTracks()) {
     pc.addTrack(track, localStream);
   }
@@ -31,11 +42,6 @@ const start_connection = async (ws) => {
       case "sdp_answer":
         console.log("Received SDP answer:", data);
         await pc.setRemoteDescription(data);
-        const button = document.createElement('button');
-        button.innerHTML = "Disconnect";
-        button.onclick = () => ws.close();
-        conn_status.innerHTML = "Connected ";
-        conn_status.appendChild(button);
         break;
       case "ice_candidate":
         console.log("Recieved ICE candidate:", data);

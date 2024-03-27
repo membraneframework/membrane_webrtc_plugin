@@ -23,7 +23,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        pc: nil,
        output_tracks: %{},
        awaiting_outputs: [],
-       tracks_to_notify: [],
        awaiting_candidates: [],
        signaling: opts.signaling,
        status: :init,
@@ -68,32 +67,17 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_pad_added(Pad.ref(:output, pad_id) = pad, _ctx, state) do
-    {:queue, queue} = state.output_tracks[pad_id]
-    buffers = Enum.reverse(queue)
-    state = put_in(state, [:output_tracks, pad_id], {:connected, pad})
-    state = maybe_answer(state)
-    {[stream_format: {pad, %Membrane.RTP{}}, buffer: {pad, buffers}], state}
+    state =
+      state
+      |> update_in([:output_tracks, pad_id], fn {:awaiting, _track} -> {:connected, pad} end)
+      |> maybe_answer()
+
+    {[stream_format: {pad, %Membrane.RTP{}}], state}
   end
 
   @impl true
   def handle_info({:ex_webrtc, _from, _msg}, _ctx, %{status: :closed} = state) do
     {[], state}
-  end
-
-  @impl true
-  def handle_info({:ex_webrtc, _from, {:track, track}}, _ctx, state) do
-    case List.keytake(state.awaiting_outputs, track.kind, 0) do
-      nil ->
-        state = put_in(state, [:output_tracks, track.id], {:queue, []})
-        {[], %{state | tracks_to_notify: state.tracks_to_notify ++ [track]}}
-
-      {{_kind, pad}, awaiting_outputs} ->
-        state =
-          %{state | awaiting_outputs: awaiting_outputs}
-          |> put_in([:output_tracks, track.id], {:connected, pad})
-
-        {[stream_format: {pad, %Membrane.RTP{}}], state}
-    end
   end
 
   @impl true
@@ -109,8 +93,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       {:connected, pad} ->
         {[buffer: {pad, buffer}], state}
 
-      {:queue, queue} ->
-        {[], %{state | output_tracks: %{output_tracks | id => {:queue, [buffer | queue]}}}}
+      {:awaiting, track} ->
+        Membrane.Logger.warning("""
+        Dropping packet of track #{inspect(id)}, kind #{inspect(track.kind)} \
+        that arrived before the SDP answer was sent.
+        """)
+
+        {[], state}
     end
   end
 
@@ -135,8 +124,39 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     Membrane.Logger.debug("Received SDP offer")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
-    send(self(), :sdp_applied)
-    {[], state}
+
+    {new_tracks, awaiting_outputs} =
+      receive_new_tracks([])
+      |> Enum.map_reduce(state.awaiting_outputs, fn track, awaiting_outputs ->
+        case List.keytake(awaiting_outputs, track.kind, 0) do
+          nil -> {{track.id, {:awaiting, track}}, awaiting_outputs}
+          {{_kind, pad}, awaiting_outputs} -> {{track.id, {:connected, pad}}, awaiting_outputs}
+        end
+      end)
+
+    output_tracks = Map.merge(state.output_tracks, Map.new(new_tracks))
+
+    state =
+      %{state | awaiting_outputs: awaiting_outputs, output_tracks: output_tracks}
+      |> maybe_answer()
+
+    tracks_notification =
+      Enum.flat_map(new_tracks, fn
+        {_id, {:awaiting, track}} -> [track]
+        _other -> []
+      end)
+      |> case do
+        [] -> []
+        tracks -> [notify_parent: {:new_tracks, tracks}]
+      end
+
+    stream_formats =
+      Enum.flat_map(new_tracks, fn
+        {_id, {:connected, pad}} -> [stream_format: {pad, %Membrane.RTP{}}]
+        _other -> []
+      end)
+
+    {tracks_notification ++ stream_formats, state}
   end
 
   @impl true
@@ -149,19 +169,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       {:error, :no_remote_description} ->
         {[], %{state | awaiting_candidates: [candidate | state.awaiting_candidates]}}
     end
-  end
-
-  @impl true
-  def handle_info(:sdp_applied, _ctx, state) do
-    state = maybe_answer(state)
-
-    actions =
-      case state.tracks_to_notify do
-        [] -> []
-        tracks -> [notify_parent: {:new_tracks, tracks}]
-      end
-
-    {actions, %{state | tracks_to_notify: []}}
   end
 
   @impl true
@@ -198,6 +205,14 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       %{state | awaiting_candidates: []}
     else
       state
+    end
+  end
+
+  defp receive_new_tracks(acc) do
+    receive do
+      {:ex_webrtc, _pc, {:track, track}} -> receive_new_tracks([track | acc])
+    after
+      0 -> Enum.reverse(acc)
     end
   end
 

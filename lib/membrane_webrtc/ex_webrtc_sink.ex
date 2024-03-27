@@ -127,6 +127,11 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
+  def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer}}, _ctx, _state) do
+    raise "WebRTC sink received SDP offer, while it sends offer and expects an answer"
+  end
+
+  @impl true
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :answer} = sdp}, _ctx, state) do
     Membrane.Logger.debug("Received SDP answer")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
@@ -196,7 +201,6 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     packet =
       ExRTP.Packet.new(buffer.payload,
-        payload_type: params.payload_type,
         timestamp: timestamp,
         marker: buffer.metadata[:rtp][:marker] || false
       )
