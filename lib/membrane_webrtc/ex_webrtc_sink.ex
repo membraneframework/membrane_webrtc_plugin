@@ -41,7 +41,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   @impl true
   def handle_setup(ctx, state) do
     signaling =
-      with %{signaling: {:websocket, opts}} <- state do
+      with {:websocket, opts} <- state.signaling do
         SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
       end
 
