@@ -17,7 +17,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   def_options signaling: [], tracks: [], video_codec: [], ice_servers: []
 
   def_input_pad :input,
-    accepted_format: _any,
+    accepted_format: Membrane.RTP,
     availability: :on_request,
     options: [kind: []]
 

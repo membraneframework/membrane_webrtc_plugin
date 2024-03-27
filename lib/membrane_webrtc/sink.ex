@@ -69,12 +69,14 @@ defmodule Membrane.WebRTC.Sink do
                 default: true
               ]
 
-  def_output_pad :output,
-    accepted_format: _any,
-    availability: :on_request
-
   def_input_pad :input,
-    accepted_format: _any,
+    accepted_format:
+      any_of(
+        %Membrane.H264{alignment: :nalu},
+        %Membrane.RemoteStream{content_format: Membrane.VP8},
+        Membrane.Opus,
+        Membrane.RTP
+      ),
     availability: :on_request,
     options: [
       kind: [

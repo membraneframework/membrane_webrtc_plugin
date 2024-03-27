@@ -54,7 +54,13 @@ defmodule Membrane.WebRTC.Source do
               ]
 
   def_output_pad :output,
-    accepted_format: _any,
+    accepted_format:
+      any_of(
+        Membrane.H264,
+        %Membrane.RemoteStream{content_format: Membrane.VP8},
+        %Membrane.RemoteStream{content_format: Membrane.Opus},
+        Membrane.RTP
+      ),
     availability: :on_request,
     options: [kind: [default: nil]]
 
