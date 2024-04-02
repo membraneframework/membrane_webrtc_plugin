@@ -6,7 +6,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   require Membrane.Logger
 
   alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
-  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer, Utils}
+  alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
 
   def_options signaling: [], video_codec: [], ice_servers: []
 
@@ -26,8 +26,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        awaiting_candidates: [],
        signaling: opts.signaling,
        status: :init,
-       audio_params: Utils.codec_params(:opus),
-       video_params: Utils.codec_params(opts.video_codec),
+       audio_params: ExWebRTCUtils.codec_params(:opus),
+       video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        ice_servers: opts.ice_servers
      }}
   end
@@ -126,7 +126,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
     {new_tracks, awaiting_outputs} =
-      receive_new_tracks([])
+      receive_new_tracks()
       |> Enum.map_reduce(state.awaiting_outputs, fn track, awaiting_outputs ->
         case List.keytake(awaiting_outputs, track.kind, 0) do
           nil -> {{track.id, {:awaiting, track}}, awaiting_outputs}
@@ -194,12 +194,18 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
          {_id, {:connected, _pad}} -> true
          _track -> false
        end) do
-      {:ok, answer} = PeerConnection.create_answer(state.pc)
-      :ok = PeerConnection.set_local_description(state.pc, answer)
+      %{pc: pc} = state
+
+      PeerConnection.get_transceivers(pc)
+      |> Enum.filter(&(&1.direction == :sendrecv))
+      |> Enum.each(&PeerConnection.set_transceiver_direction(pc, &1.id, :recvonly))
+
+      {:ok, answer} = PeerConnection.create_answer(pc)
+      :ok = PeerConnection.set_local_description(pc, answer)
 
       state.awaiting_candidates
       |> Enum.reverse()
-      |> Enum.each(&(:ok = PeerConnection.add_ice_candidate(state.pc, &1)))
+      |> Enum.each(&(:ok = PeerConnection.add_ice_candidate(pc, &1)))
 
       SignalingChannel.signal(state.signaling, answer)
       %{state | awaiting_candidates: []}
@@ -208,12 +214,18 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     end
   end
 
-  defp receive_new_tracks(acc) do
+  defp receive_new_tracks(), do: do_receive_new_tracks([])
+
+  defp do_receive_new_tracks(acc) do
     receive do
-      {:ex_webrtc, _pc, {:track, track}} -> receive_new_tracks([track | acc])
+      {:ex_webrtc, _pc, {:track, track}} -> do_receive_new_tracks([track | acc])
     after
       0 -> Enum.reverse(acc)
     end
+  end
+
+  defp handle_close(_ctx, %{status: :connecting}) do
+    raise "Connection failed"
   end
 
   defp handle_close(%{playback: :playing} = ctx, %{status: status} = state)

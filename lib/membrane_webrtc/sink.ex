@@ -17,7 +17,7 @@ defmodule Membrane.WebRTC.Sink do
   """
   use Membrane.Bin
 
-  alias Membrane.WebRTC.{ExWebRTCSink, SignalingChannel}
+  alias Membrane.WebRTC.{ExWebRTCSink, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
   Notification that should be sent to the bin to negotiate new tracks.
@@ -33,18 +33,14 @@ defmodule Membrane.WebRTC.Sink do
   """
   @type new_tracks :: {:new_tracks, [%{id: term, kind: :audio | :video}]}
 
-  @type ws_opts :: %{ip: :inet.ip_address(), port: :inet.port_number()}
-
   def_options signaling: [
-                spec: SignalingChannel.t() | {:websocket, ws_opts},
+                spec: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
                 description: """
                 Channel for passing WebRTC signaling messages (SDP and ICE).
                 Either:
                 - `#{inspect(SignalingChannel)}` - See its docs for details.
-                - `{:websocket, options}` - A simple WebSocket server
-                that will accept a single connection. Each message sent through
-                the socket should be a JSON-encoded
-                `t:#{inspect(SignalingChannel)}.json_data_message/0`.
+                - `{:websocket, options}` - Spawns #{inspect(SimpleWebSocketServer)},
+                see there for details.
                 """
               ],
               tracks: [
@@ -112,16 +108,10 @@ defmodule Membrane.WebRTC.Sink do
     %{kind: kind} = ctx.pad_options
 
     spec =
-      if state.payload_rtp do
-        bin_input(pad_ref)
-        |> child(get_payloader(kind, state))
-        |> via_in(pad_ref, options: [kind: kind])
-        |> get_child(:webrtc)
-      else
-        bin_input(pad_ref)
-        |> via_in(pad_ref, options: [kind: kind])
-        |> get_child(:webrtc)
-      end
+      bin_input(pad_ref)
+      |> then(if state.payload_rtp, do: &child(&1, get_payloader(kind, state)), else: & &1)
+      |> via_in(pad_ref, options: [kind: kind])
+      |> get_child(:webrtc)
 
     {[spec: spec], state}
   end

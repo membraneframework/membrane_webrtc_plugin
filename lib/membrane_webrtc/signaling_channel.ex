@@ -42,7 +42,7 @@ defmodule Membrane.WebRTC.SignalingChannel do
   @typedoc """
   Messages sent and received if `message_format` is `ex_webrtc`.
   """
-  @type ex_webrtc_message :: ExWebRTC.ICECandidate.t() | ExWebRTC.SessionDescription.t()
+  @type ex_webrtc_message :: ICECandidate.t() | SessionDescription.t()
 
   @typedoc """
   Messages sent and received if `message_format` is `json_data`.
@@ -75,8 +75,12 @@ defmodule Membrane.WebRTC.SignalingChannel do
   """
   @spec register_peer(t, message_format: :ex_webrtc | :json_data, pid: pid) :: :ok
   def register_peer(%__MODULE__{pid: pid}, opts \\ []) do
-    opts = Keyword.validate!(opts, message_format: :ex_webrtc, pid: self())
-    opts = Map.new(opts) |> Map.put(:is_element, false)
+    opts =
+      opts
+      |> Keyword.validate!(message_format: :ex_webrtc, pid: self())
+      |> Map.new()
+      |> Map.put(:is_element, false)
+
     send(pid, {:register_peer, opts})
     :ok
   end
@@ -132,7 +136,7 @@ defmodule Membrane.WebRTC.SignalingChannel do
         |> Enum.reverse()
         |> Enum.each(&send_peer(state.peer_a, state.peer_b, &1))
 
-        {:noreply, state}
+        {:noreply, %{state | message_queue: []}}
 
       state ->
         raise """
@@ -143,7 +147,7 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   @impl true
-  def handle_info({:signal, _from_pid, message}, %{peer_b: %{pid: nil}} = state) do
+  def handle_info({:signal, _from_pid, message}, %{peer_b: nil} = state) do
     {:noreply, %{state | message_queue: [message | state.message_queue]}}
   end
 

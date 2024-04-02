@@ -12,7 +12,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     SessionDescription
   }
 
-  alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer, Utils}
+  alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
 
   def_options signaling: [], tracks: [], video_codec: [], ice_servers: []
 
@@ -32,8 +32,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        negotiated_tracks: [],
        signaling: opts.signaling,
        status: :init,
-       audio_params: Utils.codec_params(:opus),
-       video_params: Utils.codec_params(opts.video_codec),
+       audio_params: ExWebRTCUtils.codec_params(:opus),
+       video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        ice_servers: opts.ice_servers
      }}
   end
@@ -121,6 +121,12 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
+  def handle_info({:ex_webrtc, _from, {message, track_id}}, _ctx, _state)
+      when message in [:track_muted, :track_removed] do
+    raise "Track #{inspect(track_id)} was rejected by the other peer"
+  end
+
+  @impl true
   def handle_info({:ex_webrtc, _from, message}, _ctx, state) do
     Membrane.Logger.debug("Ignoring ex_webrtc message: #{inspect(message)}")
     {[], state}
@@ -176,16 +182,20 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     state
   end
 
-  defp maybe_negotiate_tracks(%{queued_tracks: queued_tracks} = state) do
+  defp maybe_negotiate_tracks(%{queued_tracks: queued_tracks, pc: pc} = state) do
     negotiating_tracks =
       Enum.map(queued_tracks, fn track ->
         webrtc_track = MediaStreamTrack.new(track.kind)
-        PeerConnection.add_track(state.pc, webrtc_track)
+        PeerConnection.add_track(pc, webrtc_track)
         Map.put(track, :id, webrtc_track.id)
       end)
 
-    {:ok, offer} = PeerConnection.create_offer(state.pc)
-    :ok = PeerConnection.set_local_description(state.pc, offer)
+    PeerConnection.get_transceivers(pc)
+    |> Enum.filter(&(&1.direction == :sendrecv))
+    |> Enum.each(&PeerConnection.set_transceiver_direction(pc, &1.id, :sendonly))
+
+    {:ok, offer} = PeerConnection.create_offer(pc)
+    :ok = PeerConnection.set_local_description(pc, offer)
     SignalingChannel.signal(state.signaling, offer)
     %{state | negotiating_tracks: negotiating_tracks, queued_tracks: []}
   end

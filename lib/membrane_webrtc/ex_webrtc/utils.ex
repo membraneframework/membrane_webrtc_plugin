@@ -1,4 +1,4 @@
-defmodule Membrane.WebRTC.Utils do
+defmodule Membrane.WebRTC.ExWebRTCUtils do
   @moduledoc false
 
   alias ExWebRTC.RTPCodecParameters

@@ -17,7 +17,7 @@ defmodule Membrane.WebRTC.Source do
   """
   use Membrane.Bin
 
-  alias Membrane.WebRTC.{ExWebRTCSource, SignalingChannel}
+  alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
   Notification sent when new tracks arrive.
@@ -26,18 +26,14 @@ defmodule Membrane.WebRTC.Source do
   """
   @type new_tracks :: {:new_tracks, [%{id: term, kind: :audio | :video}]}
 
-  @type ws_opts :: %{ip: :inet.ip_address(), port: :inet.port_number()}
-
   def_options signaling: [
-                spec: SignalingChannel.t() | {:websocket, ws_opts},
+                spec: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
                 description: """
                 Channel for passing WebRTC signaling messages (SDP and ICE).
                 Either:
                 - `#{inspect(SignalingChannel)}` - See its docs for details.
-                - `{:websocket, options}` - A simple WebSocket server
-                that will accept a single connection. Each message sent through
-                the socket should be a JSON-encoded
-                `t:#{inspect(SignalingChannel)}.json_data_message/0`.
+                - `{:websocket, options}` - Spawns #{inspect(SimpleWebSocketServer)},
+                see there for details.
                 """
               ],
               video_codec: [
@@ -95,14 +91,10 @@ defmodule Membrane.WebRTC.Source do
     kind = kind || track.kind
 
     spec =
-      if state.depayload_rtp do
-        get_child(:webrtc)
-        |> via_out(pad_ref, options: [kind: kind])
-        |> child(get_depayloader(kind, state))
-        |> bin_output(pad_ref)
-      else
-        get_child(:webrtc) |> via_out(pad_ref) |> bin_output(pad_ref)
-      end
+      get_child(:webrtc)
+      |> via_out(pad_ref, options: [kind: kind])
+      |> then(if state.depayload_rtp, do: &child(&1, get_depayloader(kind, state)), else: & &1)
+      |> bin_output(pad_ref)
 
     {[spec: spec], state}
   end
@@ -115,14 +107,23 @@ defmodule Membrane.WebRTC.Source do
   end
 
   defp get_depayloader(:audio, _state) do
-    %Membrane.RTP.DepayloaderBin{depayloader: Membrane.RTP.Opus.Depayloader, clock_rate: 48_000}
+    %Membrane.RTP.DepayloaderBin{
+      depayloader: Membrane.RTP.Opus.Depayloader,
+      clock_rate: ExWebRTCUtils.codec_params(:opus).clock_rate
+    }
   end
 
   defp get_depayloader(:video, %{video_codec: :vp8}) do
-    %Membrane.RTP.DepayloaderBin{depayloader: Membrane.RTP.VP8.Depayloader, clock_rate: 96_000}
+    %Membrane.RTP.DepayloaderBin{
+      depayloader: Membrane.RTP.VP8.Depayloader,
+      clock_rate: ExWebRTCUtils.codec_params(:vp8).clock_rate
+    }
   end
 
   defp get_depayloader(:video, %{video_codec: :h264}) do
-    %Membrane.RTP.DepayloaderBin{depayloader: Membrane.RTP.H264.Depayloader, clock_rate: 96_000}
+    %Membrane.RTP.DepayloaderBin{
+      depayloader: Membrane.RTP.H264.Depayloader,
+      clock_rate: ExWebRTCUtils.codec_params(:h264).clock_rate
+    }
   end
 end

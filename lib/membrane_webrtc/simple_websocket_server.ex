@@ -1,30 +1,52 @@
 defmodule Membrane.WebRTC.SimpleWebSocketServer do
-  @moduledoc false
+  @moduledoc """
+  A simple WebSocket server spawned by `Membrane.WebRTC.Source`
+  and `Membrane.WebRTC.Sink`. It accepts a single connection
+  and passes the messages between the client and a Membrane
+  element.
+
+  The messages sent and received by the server are JSON-encoded
+  `t:Membrane.WebRTC.SignalingChannel.json_data_message/0`.
+  Additionally, the server sends a `{type: "keep_alive", data: ""}`
+  messages to prevent the WebSocket from being closed.
+
+  Examples of configuring and interacting with the server can
+  be found in the `examples` directory.
+  """
 
   alias Membrane.WebRTC.SignalingChannel
 
-  @type option :: {:ip, :inet.ip_address()} | {:port, :inet.port_number()}
+  @typedoc """
+  Options for the server.
 
-  @spec child_spec([option | {:signaling, SignalingChannel.t()}]) :: Supervisor.child_spec()
-  def child_spec(opts) do
-    opts = opts |> Keyword.validate!([:signaling, :port, ip: {127, 0, 0, 1}]) |> Map.new()
+  The port is required, while the IP address defaults to `{127, 0, 0, 1}`.
+  """
+  @type options :: [ip: :inet.ip_address(), port: :inet.port_number()]
+
+  @doc false
+  @spec child_spec({options, SignalingChannel.t()}) :: Supervisor.child_spec()
+  def child_spec({opts, signaling}) do
+    opts = opts |> Keyword.validate!([:port, ip: {127, 0, 0, 1}]) |> Map.new()
 
     Supervisor.child_spec(
       {Bandit,
-       plug: {__MODULE__.Router, %{conn_cnt: :atomics.new(1, []), signaling: opts.signaling}},
+       plug: {__MODULE__.Router, %{conn_cnt: :atomics.new(1, []), signaling: signaling}},
        ip: opts.ip,
        port: opts.port},
       []
     )
   end
 
-  @spec start_link_supervised(pid, [option]) :: SignalingChannel.t()
+  @doc false
+  @spec start_link_supervised(pid, options) :: SignalingChannel.t()
   def start_link_supervised(utility_supervisor, opts) do
     signaling = SignalingChannel.new()
-    opts = [signaling: signaling] ++ opts
 
     {:ok, _pid} =
-      Membrane.UtilitySupervisor.start_link_child(utility_supervisor, {__MODULE__, opts})
+      Membrane.UtilitySupervisor.start_link_child(
+        utility_supervisor,
+        {__MODULE__, {opts, signaling}}
+      )
 
     signaling
   end
@@ -76,7 +98,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     @impl true
     def init(opts) do
       SignalingChannel.register_peer(opts.signaling, message_format: :json_data)
-      Process.send_after(self(), :ping, 30_000)
+      Process.send_after(self(), :keep_alive, 30_000)
       {:ok, %{signaling: opts.signaling}}
     end
 
@@ -92,9 +114,9 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     end
 
     @impl true
-    def handle_info(:ping, state) do
+    def handle_info(:keep_alive, state) do
       Process.send_after(self(), :ping, 30_000)
-      {:push, {:text, Jason.encode!(%{type: "ping", data: ""})}, state}
+      {:push, {:text, Jason.encode!(%{type: "keep_alive", data: ""})}, state}
     end
 
     @impl true
