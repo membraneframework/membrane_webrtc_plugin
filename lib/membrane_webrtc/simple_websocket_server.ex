@@ -115,7 +115,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
 
     @impl true
     def handle_info(:keep_alive, state) do
-      Process.send_after(self(), :ping, 30_000)
+      Process.send_after(self(), :keep_alive, 30_000)
       {:push, {:text, Jason.encode!(%{type: "keep_alive", data: ""})}, state}
     end
 
