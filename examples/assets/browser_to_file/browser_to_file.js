@@ -21,14 +21,16 @@ const start_connection = async (ws) => {
   };
 
   pc.onconnectionstatechange = () => {
-    const button = document.createElement('button');
-    button.innerHTML = "Disconnect";
-    button.onclick = () => {
-      ws.close();
-      localStream.getTracks().forEach(track => track.stop())
+    if (pc.connectionState == "connected") {
+      const button = document.createElement('button');
+      button.innerHTML = "Disconnect";
+      button.onclick = () => {
+        ws.close();
+        localStream.getTracks().forEach(track => track.stop())
+      }
+      connStatus.innerHTML = "Connected ";
+      connStatus.appendChild(button);
     }
-    connStatus.innerHTML = "Connected ";
-    connStatus.appendChild(button);
   }
 
   for (const track of localStream.getTracks()) {

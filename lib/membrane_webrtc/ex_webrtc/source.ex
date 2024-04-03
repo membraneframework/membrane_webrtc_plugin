@@ -195,11 +195,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
          _track -> false
        end) do
       %{pc: pc} = state
-
-      PeerConnection.get_transceivers(pc)
-      |> Enum.filter(&(&1.direction == :sendrecv))
-      |> Enum.each(&PeerConnection.set_transceiver_direction(pc, &1.id, :recvonly))
-
       {:ok, answer} = PeerConnection.create_answer(pc)
       :ok = PeerConnection.set_local_description(pc, answer)
 
