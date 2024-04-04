@@ -1,12 +1,12 @@
-defmodule Membrane.Template.Mixfile do
+defmodule Membrane.WebRTC.Plugin.Mixfile do
   use Mix.Project
 
   @version "0.1.0"
-  @github_url "https://github.com/membraneframework/membrane_template_plugin"
+  @github_url "https://github.com/membraneframework/membrane_webrtc_plugin"
 
   def project do
     [
-      app: :membrane_template_plugin,
+      app: :membrane_webrtc_plugin,
       version: @version,
       elixir: "~> 1.13",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -15,11 +15,11 @@ defmodule Membrane.Template.Mixfile do
       dialyzer: dialyzer(),
 
       # hex
-      description: "Template Plugin for Membrane Framework",
+      description: "Membrane WebRTC plugin",
       package: package(),
 
       # docs
-      name: "Membrane Template plugin",
+      name: "Membrane WebRTC plugin",
       source_url: @github_url,
       docs: docs()
     ]
@@ -37,6 +37,17 @@ defmodule Membrane.Template.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 1.0"},
+      {:ex_webrtc, "~> 0.1.0"},
+      {:membrane_rtp_plugin, "~> 0.27.1"},
+      {:membrane_rtp_h264_plugin, "~> 0.19.0"},
+      {:membrane_rtp_vp8_plugin, "~> 0.9.0"},
+      {:membrane_rtp_opus_plugin, "~> 0.9.0"},
+      {:bandit, "~> 1.2"},
+      {:websock_adapter, "~> 0.5.0"},
+      {:membrane_matroska_plugin, "~> 0.5.0", only: :test},
+      {:membrane_file_plugin, "~> 0.16.0", only: :test},
+      {:membrane_realtimer_plugin, "~> 0.9.0", only: :test},
+      {:membrane_opus_plugin, "~> 0.20.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
       {:credo, ">= 0.0.0", only: :dev, runtime: false}
@@ -73,7 +84,7 @@ defmodule Membrane.Template.Mixfile do
       extras: ["README.md", "LICENSE"],
       formatters: ["html"],
       source_ref: "v#{@version}",
-      nest_modules_by_prefix: [Membrane.Template]
+      nest_modules_by_prefix: [Membrane.WebRTC]
     ]
   end
 end
