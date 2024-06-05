@@ -4,6 +4,7 @@
 # http://localhost:8000/index.html in your browser. To finish recording,
 # click the `disconnect` button or close the tab.
 
+require Logger
 Logger.configure(level: :info)
 
 Mix.install([
@@ -66,6 +67,11 @@ Process.monitor(supervisor)
     server_name: ~c"webrtc",
     server_root: "/tmp"
   )
+
+Logger.info("""
+Visit http://localhost:8000/index.html to start the stream. To finish the recording properly,
+don't terminate this script - instead click 'disconnect' in the website or close the browser tab.
+""")
 
 receive do
   {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok

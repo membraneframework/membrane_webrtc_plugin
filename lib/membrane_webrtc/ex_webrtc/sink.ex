@@ -21,6 +21,9 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     availability: :on_request,
     options: [kind: []]
 
+  @max_rtp_timestamp 2 ** 32 - 1
+  @max_rtp_seq_num 2 ** 16 - 1
+
   @impl true
   def handle_init(_ctx, opts) do
     {[],
@@ -34,6 +37,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        status: :init,
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
+       video_codec: opts.video_codec,
        ice_servers: opts.ice_servers
      }}
   end
@@ -48,8 +52,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     {:ok, pc} =
       PeerConnection.start_link(
         ice_servers: state.ice_servers,
-        video_codecs: [state.video_params],
-        audio_codecs: [state.audio_params]
+        video_codecs: state.video_params,
+        audio_codecs: state.audio_params
       )
 
     Process.monitor(signaling.pid)
@@ -77,11 +81,14 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     negotiated_tracks = List.delete(negotiated_tracks, track)
 
-    params =
-      case track.kind do
-        :audio -> state.audio_params
-        :video -> state.video_params
-      end
+    params = %{
+      clock_rate:
+        case track.kind do
+          :audio -> ExWebRTCUtils.codec_clock_rate(:opus)
+          :video -> ExWebRTCUtils.codec_clock_rate(state.video_codec)
+        end,
+      seq_num: Enum.random(0..@max_rtp_seq_num)
+    }
 
     input_tracks = Map.put(input_tracks, pad, {track.id, params})
     state = %{state | negotiated_tracks: negotiated_tracks, input_tracks: input_tracks}
@@ -90,7 +97,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @impl true
   def handle_buffer(pad, buffer, _ctx, state) do
-    send_buffer(pad, buffer, state)
+    state = send_buffer(pad, buffer, state)
     {[], state}
   end
 
@@ -208,13 +215,17 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
         buffer.pts,
         Ratio.new(Membrane.Time.second(), params.clock_rate)
       )
+      |> rem(@max_rtp_timestamp + 1)
 
     packet =
       ExRTP.Packet.new(buffer.payload,
         timestamp: timestamp,
-        marker: buffer.metadata[:rtp][:marker] || false
+        marker: buffer.metadata[:rtp][:marker] || false,
+        sequence_number: params.seq_num
       )
 
     PeerConnection.send_rtp(state.pc, id, packet)
+    seq_num = rem(params.seq_num + 1, @max_rtp_seq_num + 1)
+    put_in(state.input_tracks[pad], {id, %{params | seq_num: seq_num}})
   end
 end

@@ -47,8 +47,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     {:ok, pc} =
       PeerConnection.start(
         ice_servers: state.ice_servers,
-        video_codecs: [state.video_params],
-        audio_codecs: [state.audio_params]
+        video_codecs: state.video_params,
+        audio_codecs: state.audio_params
       )
 
     Process.monitor(pc)
