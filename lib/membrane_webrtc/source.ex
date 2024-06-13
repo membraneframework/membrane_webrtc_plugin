@@ -109,21 +109,21 @@ defmodule Membrane.WebRTC.Source do
   defp get_depayloader(:audio, _state) do
     %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.Opus.Depayloader,
-      clock_rate: ExWebRTCUtils.codec_params(:opus).clock_rate
+      clock_rate: ExWebRTCUtils.codec_clock_rate(:opus)
     }
   end
 
   defp get_depayloader(:video, %{video_codec: :vp8}) do
     %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
-      clock_rate: ExWebRTCUtils.codec_params(:vp8).clock_rate
+      clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
     }
   end
 
   defp get_depayloader(:video, %{video_codec: :h264}) do
     %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
-      clock_rate: ExWebRTCUtils.codec_params(:h264).clock_rate
+      clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
     }
   end
 end

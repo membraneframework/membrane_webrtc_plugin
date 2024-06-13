@@ -5,6 +5,7 @@
 # Note that due to browsers' policy, you need to manually unmute
 # audio in the player to hear the sound.
 
+require Logger
 Logger.configure(level: :info)
 
 Mix.install([
@@ -88,6 +89,10 @@ Process.monitor(supervisor)
     server_name: ~c"webrtc",
     server_root: "/tmp"
   )
+
+Logger.info("""
+The stream is available at http://localhost:8000/index.html.
+""")
 
 receive do
   {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok
