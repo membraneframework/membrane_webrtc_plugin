@@ -109,7 +109,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
   end
 
   defmodule DynamicTracks do
-    use ExUnit.Case, async: false
+    use ExUnit.Case, async: true
 
     import Utils
 
