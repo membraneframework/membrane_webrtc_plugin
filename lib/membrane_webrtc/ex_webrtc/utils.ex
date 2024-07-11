@@ -15,41 +15,21 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     ]
 
   def codec_params(:h264) do
-    pt = 96
-    rtx_pt = 97
-
     [
       %RTPCodecParameters{
-        payload_type: pt,
+        payload_type: 96,
         mime_type: "video/H264",
-        clock_rate: codec_clock_rate(:h264),
-        rtcp_fbs: [%ExSDP.Attribute.RTCPFeedback{pt: pt, feedback_type: :nack}]
-      },
-      %RTPCodecParameters{
-        payload_type: rtx_pt,
-        mime_type: "video/rtx",
-        clock_rate: codec_clock_rate(:h264),
-        sdp_fmtp_line: %ExSDP.Attribute.FMTP{pt: rtx_pt, apt: pt}
+        clock_rate: codec_clock_rate(:h264)
       }
     ]
   end
 
   def codec_params(:vp8) do
-    pt = 102
-    rtx_pt = 103
-
     [
       %RTPCodecParameters{
-        payload_type: pt,
+        payload_type: 102,
         mime_type: "video/VP8",
-        clock_rate: codec_clock_rate(:vp8),
-        rtcp_fbs: [%ExSDP.Attribute.RTCPFeedback{pt: pt, feedback_type: :nack}]
-      },
-      %RTPCodecParameters{
-        payload_type: rtx_pt,
-        mime_type: "video/rtx",
-        clock_rate: codec_clock_rate(:vp8),
-        sdp_fmtp_line: %ExSDP.Attribute.FMTP{pt: rtx_pt, apt: pt}
+        clock_rate: codec_clock_rate(:vp8)
       }
     ]
   end

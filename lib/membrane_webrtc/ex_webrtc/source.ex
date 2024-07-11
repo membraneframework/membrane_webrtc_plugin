@@ -81,7 +81,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({:ex_webrtc, _from, {:rtp, id, packet}}, _ctx, state) do
+  def handle_info({:ex_webrtc, _from, {:rtp, id, _rid, packet}}, _ctx, state) do
     buffer = %Membrane.Buffer{
       payload: packet.payload,
       metadata: %{rtp: packet |> Map.from_struct() |> Map.delete(:payload)}
