@@ -134,6 +134,38 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
+  def handle_info({:ex_webrtc, _from, {:rtcp, rtcp_packets}}, ctx, state) do
+    request_keyframe? =
+      rtcp_packets
+      |> Enum.reduce(false, fn packet, request_keyframe? ->
+        case packet do
+          {_track_id, %ExRTCP.Packet.PayloadFeedback.PLI{}} ->
+            Membrane.Logger.debug("Keyframe request received: #{inspect(packet)}")
+            true
+
+          _other ->
+            Membrane.Logger.debug("Ignoring RTCP packet: #{inspect(packet)}")
+            request_keyframe?
+        end
+      end)
+
+    actions =
+      if request_keyframe? do
+        ctx.pads
+        |> Enum.flat_map(fn {pad_ref, pad_data} ->
+          case pad_data.options.kind do
+            :video -> [event: {pad_ref, %Membrane.KeyframeRequestEvent{}}]
+            :audio -> []
+          end
+        end)
+      else
+        []
+      end
+
+    {actions, state}
+  end
+
+  @impl true
   def handle_info({:ex_webrtc, _from, message}, _ctx, state) do
     Membrane.Logger.debug("Ignoring ex_webrtc message: #{inspect(message)}")
     {[], state}
