@@ -76,6 +76,21 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
+  def handle_event(Pad.ref(:output, track_id), %Membrane.KeyframeRequestEvent{}, _ctx, state) do
+    with {:connected, _pad} <- state.output_tracks[track_id] do
+      :ok = PeerConnection.send_pli(state.pc, track_id)
+    end
+
+    {[], state}
+  end
+
+  @impl true
+  def handle_event(pad, event, _ctx, state) do
+    Membrane.Logger.debug("Ignoring event #{inspect(event)} that arrived on pad #{inspect(pad)}")
+    {[], state}
+  end
+
+  @impl true
   def handle_info({:ex_webrtc, _from, _msg}, _ctx, %{status: :closed} = state) do
     {[], state}
   end
