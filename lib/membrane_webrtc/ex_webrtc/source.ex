@@ -76,13 +76,20 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_event(Pad.ref(:output, track_id), %Membrane.KeyframeRequestEvent{}, _ctx, state) do
+  def handle_event(pad, %Membrane.KeyframeRequestEvent{}, _ctx, state) do
     Membrane.Logger.warning(
-      "Keyframe request track_id #{inspect(track_id)} #{inspect(state.output_tracks)}"
+      "Keyframe request pad #{inspect(pad)} #{inspect(state.output_tracks)}"
     )
 
-    with {:connected, _pad} <- state.output_tracks[track_id] do
-      # Membrane.Logger.warning("Sending PLI on track #{inspect(track_id)}")
+    track_id =
+      state.output_tracks
+      |> Enum.find_value(fn
+        {track_id, {:connected, ^pad}} -> track_id
+        _other -> false
+      end)
+
+    if track_id do
+      Membrane.Logger.warning("Sending PLI on track #{inspect(track_id)}")
       :ok = PeerConnection.send_pli(state.pc, track_id)
     end
 
