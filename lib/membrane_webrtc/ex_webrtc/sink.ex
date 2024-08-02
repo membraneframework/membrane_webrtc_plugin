@@ -12,6 +12,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     SessionDescription
   }
 
+  alias ExRTCP.Packet.PayloadFeedback.PLI
+
   alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
 
   def_options signaling: [], tracks: [], video_codec: [], ice_servers: []
@@ -38,7 +40,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        video_codec: opts.video_codec,
-       ice_servers: opts.ice_servers
+       ice_servers: opts.ice_servers,
+       last_keyframe_request_ts: nil
      }}
   end
 
@@ -135,23 +138,23 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:rtcp, rtcp_packets}}, ctx, state) do
-    request_keyframe? =
+    pli? =
       rtcp_packets
-      |> Enum.reduce(false, fn packet, request_keyframe? ->
-        case packet do
-          {_track_id, %ExRTCP.Packet.PayloadFeedback.PLI{}} ->
-            Membrane.Logger.warning("Keyframe request received: #{inspect(packet)}")
-            true
+      |> Enum.reduce(false, fn
+        %PLI{} = packet, _pli? ->
+          Membrane.Logger.debug("Keyframe request received: #{inspect(packet)}")
+          true
 
-          %ExRTCP.Packet.PayloadFeedback.PLI{} ->
-            Membrane.Logger.warning("Keyframe request received: #{inspect(packet)}")
-            true
-
-          _other ->
-            Membrane.Logger.debug("Ignoring RTCP pacekt: #{inspect(packet)}")
-            request_keyframe?
-        end
+        packet, pli? ->
+          Membrane.Logger.debug_verbose("Ignoring RTCP packet: #{inspect(packet)}")
+          pli?
       end)
+
+    now = System.os_time(:millisecond) |> Membrane.Time.milliseconds()
+    then = state.last_keyframe_request_ts
+
+    request_keyframe? = pli? and (then == nil or now - then >= Membrane.Time.second())
+    state = if request_keyframe?, do: %{state | last_keyframe_request_ts: now}, else: state
 
     actions =
       if request_keyframe? do
