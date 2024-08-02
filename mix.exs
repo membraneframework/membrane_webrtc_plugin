@@ -40,7 +40,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:ex_webrtc, "~> 0.3.0"},
       {:membrane_rtp_plugin, "~> 0.29.0"},
       {:membrane_rtp_h264_plugin, "~> 0.19.0"},
-      {:membrane_rtp_vp8_plugin, "~> 0.9.0"},
+      {:membrane_rtp_vp8_plugin, "~> 0.9.1"},
       {:membrane_rtp_opus_plugin, "~> 0.9.0"},
       {:bandit, "~> 1.2"},
       {:websock_adapter, "~> 0.5.0"},
