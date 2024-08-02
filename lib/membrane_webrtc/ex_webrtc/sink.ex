@@ -143,8 +143,12 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
             Membrane.Logger.warning("Keyframe request received: #{inspect(packet)}")
             true
 
+          %ExRTCP.Packet.PayloadFeedback.PLI{} ->
+            Membrane.Logger.warning("Keyframe request received: #{inspect(packet)}")
+            true
+
           _other ->
-            Membrane.Logger.warning("Ignoring RTCP packet: #{inspect(packet)}")
+            Membrane.Logger.warning("Ignoring RTCP pacekt: #{inspect(packet)}")
             request_keyframe?
         end
       end)
