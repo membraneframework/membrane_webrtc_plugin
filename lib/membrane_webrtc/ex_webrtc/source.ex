@@ -78,7 +78,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   @impl true
   def handle_event(Pad.ref(:output, track_id), %Membrane.KeyframeRequestEvent{}, _ctx, state) do
     Membrane.Logger.warning(
-      "Keyframe request track_id #{inspect(track_id)} #{inspect(state.output_tracks[track_id])}"
+      "Keyframe request track_id #{inspect(track_id)} #{inspect(state.output_tracks)}"
     )
 
     with {:connected, _pad} <- state.output_tracks[track_id] do
