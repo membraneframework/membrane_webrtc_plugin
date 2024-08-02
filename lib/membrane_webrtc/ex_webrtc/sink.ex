@@ -148,7 +148,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
             true
 
           _other ->
-            Membrane.Logger.warning("Ignoring RTCP pacekt: #{inspect(packet)}")
+            Membrane.Logger.debug("Ignoring RTCP pacekt: #{inspect(packet)}")
             request_keyframe?
         end
       end)
