@@ -174,7 +174,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @impl true
   def handle_info({:ex_webrtc, _from, message}, _ctx, state) do
-    Membrane.Logger.warning("Ignoring ex_webrtc message: #{inspect(message)}")
+    Membrane.Logger.debug("Ignoring ex_webrtc message: #{inspect(message)}")
     {[], state}
   end
 
