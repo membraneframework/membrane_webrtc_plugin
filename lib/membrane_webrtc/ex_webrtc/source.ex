@@ -76,12 +76,35 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
+  def handle_event(pad, %Membrane.KeyframeRequestEvent{}, _ctx, state) do
+    track_id =
+      state.output_tracks
+      |> Enum.find_value(fn
+        {track_id, {:connected, ^pad}} -> track_id
+        _other -> false
+      end)
+
+    if track_id do
+      Membrane.Logger.debug("Sending PLI on track #{inspect(track_id)}")
+      :ok = PeerConnection.send_pli(state.pc, track_id)
+    end
+
+    {[], state}
+  end
+
+  @impl true
+  def handle_event(pad, event, _ctx, state) do
+    Membrane.Logger.debug("Ignoring event #{inspect(event)} that arrived on pad #{inspect(pad)}")
+    {[], state}
+  end
+
+  @impl true
   def handle_info({:ex_webrtc, _from, _msg}, _ctx, %{status: :closed} = state) do
     {[], state}
   end
 
   @impl true
-  def handle_info({:ex_webrtc, _from, {:rtp, id, packet}}, _ctx, state) do
+  def handle_info({:ex_webrtc, _from, {:rtp, id, _rid, packet}}, _ctx, state) do
     buffer = %Membrane.Buffer{
       payload: packet.payload,
       metadata: %{rtp: packet |> Map.from_struct() |> Map.delete(:payload)}
