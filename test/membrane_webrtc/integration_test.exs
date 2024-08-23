@@ -132,7 +132,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
       Process.sleep(1500)
 
-      Testing.Pipeline.message_child(send_pipeline, :webrtc, {:add_tracks, [:audio, :video]})
+      Testing.Pipeline.notify_child(send_pipeline, :webrtc, {:add_tracks, [:audio, :video]})
 
       assert_pipeline_notified(receive_pipeline, :webrtc, {:new_tracks, tracks})
 
