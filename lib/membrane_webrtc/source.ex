@@ -15,6 +15,7 @@ defmodule Membrane.WebRTC.Source do
   the `t:new_tracks/0` notification is sent. Then, the corresponding pads
   should be linked - the id of each pad should match one of the track ids.
   """
+  alias Membrane.WebRTC.ExWebRTCSourceWHIP
   use Membrane.Bin
 
   alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
@@ -26,7 +27,14 @@ defmodule Membrane.WebRTC.Source do
   """
   @type new_tracks :: {:new_tracks, [%{id: term, kind: :audio | :video}]}
 
-  def_options signaling: [
+  def_options whip: [
+                spec: String,
+                description: """
+                URL on which source will receive WebRTC WHIP stream
+                """,
+                default: nil
+              ],
+              signaling: [
                 spec: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
                 description: """
                 Channel for passing WebRTC signaling messages (SDP and ICE).
@@ -34,7 +42,8 @@ defmodule Membrane.WebRTC.Source do
                 - `#{inspect(SignalingChannel)}` - See its docs for details.
                 - `{:websocket, options}` - Spawns #{inspect(SimpleWebSocketServer)},
                 see there for details.
-                """
+                """,
+                default: nil
               ],
               video_codec: [
                 spec: :vp8 | :h264,
@@ -61,7 +70,25 @@ defmodule Membrane.WebRTC.Source do
     options: [kind: [default: nil]]
 
   @impl true
+  def handle_init(_ctx, %{whip: url} = opts) when url != nil do
+    IO.inspect(url, label: "whip url")
+    # return setup incomplete and run REST server that will wait for /whip request
+    # return setup complete when client connects with a stream
+
+    spec =
+      child(:webrtc, %ExWebRTCSourceWHIP{
+        whip: opts.whip,
+        video_codec: opts.video_codec,
+        ice_servers: opts.ice_servers
+      })
+
+    state = %{tracks: %{}, mode: :whip} |> Map.merge(opts)
+    {[spec: spec], state}
+  end
+
   def handle_init(_ctx, opts) do
+    IO.inspect(opts, label: "opts")
+
     {signaling, opts} = opts |> Map.from_struct() |> Map.pop!(:signaling)
 
     spec =
@@ -71,8 +98,13 @@ defmodule Membrane.WebRTC.Source do
         ice_servers: opts.ice_servers
       })
 
-    state = %{tracks: %{}} |> Map.merge(opts)
+    state = %{tracks: %{}, mode: :signaling} |> Map.merge(opts)
     {[spec: spec], state}
+  end
+
+  @impl true
+  def handle_setup(_ctx, %{mode: :whip} = state) do
+    {[setup: :incomplete], state}
   end
 
   @impl true

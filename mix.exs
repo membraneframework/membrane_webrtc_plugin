@@ -37,7 +37,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
   defp deps do
     [
       {:membrane_core, "~> 1.0"},
-      {:ex_webrtc, "~> 0.3.0"},
+      {:ex_webrtc, "~> 0.4.0"},
       {:membrane_rtp_plugin, "~> 0.29.0"},
       {:membrane_rtp_h264_plugin, "~> 0.19.0"},
       {:membrane_rtp_vp8_plugin, "~> 0.9.1"},
