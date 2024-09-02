@@ -141,7 +141,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     pli? =
       rtcp_packets
       |> Enum.reduce(false, fn
-        %PLI{} = packet, _pli? ->
+        {_track_id, %PLI{} = packet}, _pli? ->
           Membrane.Logger.debug("Keyframe request received: #{inspect(packet)}")
           true
 

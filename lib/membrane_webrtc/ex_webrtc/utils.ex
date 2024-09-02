@@ -19,7 +19,13 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
       %RTPCodecParameters{
         payload_type: 96,
         mime_type: "video/H264",
-        clock_rate: codec_clock_rate(:h264)
+        clock_rate: codec_clock_rate(:h264),
+        sdp_fmtp_line: %ExSDP.Attribute.FMTP{
+          pt: 96,
+          level_asymmetry_allowed: 1,
+          packetization_mode: 1,
+          profile_level_id: 0x42E01F
+        }
       }
     ]
   end
