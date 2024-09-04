@@ -71,15 +71,16 @@ defmodule Membrane.WebRTC.Source do
 
   @impl true
   def handle_init(_ctx, %{whip: url} = opts) when url != nil do
-    IO.inspect(url, label: "whip url")
-    # return setup incomplete and run REST server that will wait for /whip request
-    # return setup complete when client connects with a stream
+    uri = URI.parse(url)
+    self = self()
 
     spec =
       child(:webrtc, %ExWebRTCSourceWHIP{
+        parent: self,
+        ip: uri.host,
+        port: uri.port,
         whip: opts.whip,
-        video_codec: opts.video_codec,
-        ice_servers: opts.ice_servers
+        video_codec: opts.video_codec
       })
 
     state = %{tracks: %{}, mode: :whip} |> Map.merge(opts)
@@ -87,8 +88,6 @@ defmodule Membrane.WebRTC.Source do
   end
 
   def handle_init(_ctx, opts) do
-    IO.inspect(opts, label: "opts")
-
     {signaling, opts} = opts |> Map.from_struct() |> Map.pop!(:signaling)
 
     spec =
@@ -136,6 +135,11 @@ defmodule Membrane.WebRTC.Source do
     tracks_map = Map.new(tracks, &{&1.id, &1})
     state = %{state | tracks: Map.merge(state.tracks, tracks_map)}
     {[notify_parent: {:new_tracks, tracks}], state}
+  end
+
+  @impl true
+  def handle_child_notification(:setup_complete, :webrtc, _ctx, state) do
+    {[setup: :complete], state}
   end
 
   defp get_depayloader(:audio, _state) do

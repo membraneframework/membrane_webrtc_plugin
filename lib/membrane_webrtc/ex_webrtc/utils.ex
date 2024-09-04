@@ -34,6 +34,15 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     ]
   end
 
+  def parse_ip_to_tuple(ip) do
+    String.split(ip, ".")
+    |> Enum.map(fn x ->
+      {number, _rest} = Integer.parse(x)
+      number
+    end)
+    |> List.to_tuple()
+  end
+
   @spec codec_clock_rate(:opus | :h264 | :vp8) :: pos_integer()
   def codec_clock_rate(:opus), do: 48_000
   def codec_clock_rate(:vp8), do: 90_000

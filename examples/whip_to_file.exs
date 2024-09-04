@@ -10,7 +10,8 @@ Mix.install([
   :membrane_realtimer_plugin,
   :membrane_matroska_plugin,
   :membrane_opus_plugin,
-  :membrane_h264_plugin
+  :membrane_h264_plugin,
+  :corsica
 ])
 
 defmodule Example.Pipeline do
@@ -23,7 +24,7 @@ defmodule Example.Pipeline do
     spec =
       [
         child(:webrtc, %WebRTC.Source{
-          whip: "http://127.0.0.1:8888"
+          whip: "http://127.0.0.1:8829/whip"
         }),
         child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
