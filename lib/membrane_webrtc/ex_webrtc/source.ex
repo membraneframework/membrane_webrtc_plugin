@@ -16,16 +16,42 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     flow_control: :push,
     options: [kind: [default: nil]]
 
+  defmodule State do
+    @type output_track :: %{
+            status: :awaiting | :connected,
+            pad: Membrane.Pad.ref() | nil,
+            track: ExWebRTC.MediaStreamTrack.t(),
+            time_since_last_keyframe: Membrane.Time.t() | nil
+          }
+
+    @type t :: %__MODULE__{
+            pc: pid() | nil,
+            output_tracks: %{(pad_id :: term()) => output_track()},
+            awaiting_outputs: [{:video | :audio, Pad.ref()}],
+            awaiting_candidates: [ExWebRTC.ICECandidate.t()],
+            signaling: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
+            status: :init | :connecting | :connected | :closed,
+            audio_params: [ExWebRTC.RTPCodecParameters.t()],
+            video_params: [ExWebRTC.RTPCodecParameters.t()],
+            ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()]
+          }
+
+    @enforce_keys [:signaling, :audio_params, :video_params, :ice_servers]
+    defstruct @enforce_keys ++
+                [
+                  pc: nil,
+                  output_tracks: %{},
+                  awaiting_outputs: [],
+                  awaiting_candidates: [],
+                  status: :init
+                ]
+  end
+
   @impl true
   def handle_init(_ctx, opts) do
     {[],
-     %{
-       pc: nil,
-       output_tracks: %{},
-       awaiting_outputs: [],
-       awaiting_candidates: [],
+     %State{
        signaling: opts.signaling,
-       status: :init,
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        ice_servers: opts.ice_servers

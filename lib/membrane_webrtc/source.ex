@@ -15,6 +15,7 @@ defmodule Membrane.WebRTC.Source do
   the `t:new_tracks/0` notification is sent. Then, the corresponding pads
   should be linked - the id of each pad should match one of the track ids.
   """
+  alias Membrane.WebRTC.KeyframeRequester
   use Membrane.Bin
 
   alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
@@ -39,6 +40,13 @@ defmodule Membrane.WebRTC.Source do
               video_codec: [
                 spec: :vp8 | :h264,
                 default: :vp8
+              ],
+              keyframe_interval: [
+                spec: Membrane.Time.t() | nil,
+                default: nil,
+                description: """
+                If not set to `nil` a keyframe will be requested as often as specified.
+                """
               ],
               ice_servers: [
                 spec: [ExWebRTC.PeerConnection.Configuration.ice_server()],
@@ -93,7 +101,7 @@ defmodule Membrane.WebRTC.Source do
     spec =
       get_child(:webrtc)
       |> via_out(pad_ref, options: [kind: kind])
-      |> then(if state.depayload_rtp, do: &child(&1, get_depayloader(kind, state)), else: & &1)
+      |> then(if state.depayload_rtp, do: &get_depayloader(&1, kind, state), else: & &1)
       |> bin_output(pad_ref)
 
     {[spec: spec], state}
@@ -106,24 +114,26 @@ defmodule Membrane.WebRTC.Source do
     {[notify_parent: {:new_tracks, tracks}], state}
   end
 
-  defp get_depayloader(:audio, _state) do
-    %Membrane.RTP.DepayloaderBin{
+  defp get_depayloader(builder, :audio, _state) do
+    child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.Opus.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:opus)
-    }
+    })
   end
 
-  defp get_depayloader(:video, %{video_codec: :vp8}) do
-    %Membrane.RTP.DepayloaderBin{
+  defp get_depayloader(builder, :video, %{video_codec: :vp8} = state) do
+    child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
-    }
+    })
+    |> child(%KeyframeRequester{keyframe_interval: state.keyframe_interval})
   end
 
-  defp get_depayloader(:video, %{video_codec: :h264}) do
-    %Membrane.RTP.DepayloaderBin{
+  defp get_depayloader(builder, :video, %{video_codec: :h264} = state) do
+    child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
-    }
+    })
+    |> child(%KeyframeRequester{keyframe_interval: state.keyframe_interval})
   end
 end
