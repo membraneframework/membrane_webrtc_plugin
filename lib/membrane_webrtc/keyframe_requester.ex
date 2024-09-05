@@ -24,11 +24,11 @@ defmodule Membrane.WebRTC.KeyframeRequester do
 
   @impl true
   def handle_buffer(:input, %Buffer{pts: pts} = buffer, _ctx, state) do
-    keyframe_request_action =
+    {keyframe_request_action, state} =
       if pts - state.last_keyframe_request_ts >= state.keyframe_interval do
-        [event: {:input, %KeyframeRequestEvent{}}]
+        {[event: {:input, %KeyframeRequestEvent{}}], %{state | last_keyframe_request_ts: pts}}
       else
-        []
+        {[], state}
       end
 
     {keyframe_request_action ++ [buffer: {:output, buffer}], state}
