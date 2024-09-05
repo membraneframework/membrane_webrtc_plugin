@@ -95,7 +95,9 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   def handle_pad_added(Pad.ref(:output, pad_id) = pad, _ctx, state) do
     state =
       state
-      |> update_in([:output_tracks, pad_id], fn {:awaiting, _track} -> {:connected, pad} end)
+      |> Bunch.Struct.update_in([:output_tracks, pad_id], fn {:awaiting, _track} ->
+        {:connected, pad}
+      end)
       |> maybe_answer()
 
     {[stream_format: {pad, %Membrane.RTP{}}], state}
