@@ -8,7 +8,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
   alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
 
-  def_options signaling: [], video_codec: [], ice_servers: []
+  def_options signaling: [], video_codec: [], ice_servers: [], keyframe_interval: []
 
   def_output_pad :output,
     accepted_format: Membrane.RTP,
@@ -20,23 +20,23 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     @type output_track :: %{
             status: :awaiting | :connected,
             pad: Membrane.Pad.ref() | nil,
-            track: ExWebRTC.MediaStreamTrack.t(),
-            time_since_last_keyframe: Membrane.Time.t() | nil
+            track: ExWebRTC.MediaStreamTrack.t()
           }
 
     @type t :: %__MODULE__{
             pc: pid() | nil,
             output_tracks: %{(pad_id :: term()) => output_track()},
-            awaiting_outputs: [{:video | :audio, Pad.ref()}],
+            awaiting_outputs: [{:video | :audio, Membrane.Pad.ref()}],
             awaiting_candidates: [ExWebRTC.ICECandidate.t()],
             signaling: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
             status: :init | :connecting | :connected | :closed,
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
-            ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()]
+            ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
+            keyframe_interval: Membrane.Time.t() | nil
           }
 
-    @enforce_keys [:signaling, :audio_params, :video_params, :ice_servers]
+    @enforce_keys [:signaling, :audio_params, :video_params, :ice_servers, :keyframe_interval]
     defstruct @enforce_keys ++
                 [
                   pc: nil,
@@ -54,7 +54,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        signaling: opts.signaling,
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
-       ice_servers: opts.ice_servers
+       ice_servers: opts.ice_servers,
+       keyframe_interval: opts.keyframe_interval
      }}
   end
 
@@ -95,12 +96,19 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   def handle_pad_added(Pad.ref(:output, pad_id) = pad, _ctx, state) do
     state =
       state
-      |> Bunch.Struct.update_in([:output_tracks, pad_id], fn {:awaiting, _track} ->
-        {:connected, pad}
+      |> Bunch.Struct.update_in([:output_tracks, pad_id], fn output_track ->
+        %{output_track | status: :connected, pad: pad}
       end)
       |> maybe_answer()
 
-    {[stream_format: {pad, %Membrane.RTP{}}], state}
+    timer_action =
+      if state.output_tracks[pad_id].track.kind == :video and state.keyframe_interval != nil do
+        [start_timer: {{:request_keyframe, pad_id}, state.keyframe_interval}]
+      else
+        []
+      end
+
+    {[stream_format: {pad, %Membrane.RTP{}}] ++ timer_action, state}
   end
 
   @impl true
@@ -108,7 +116,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     track_id =
       state.output_tracks
       |> Enum.find_value(fn
-        {track_id, {:connected, ^pad}} -> track_id
+        {track_id, %{status: :connected, pad: ^pad}} -> track_id
         _other -> false
       end)
 
@@ -141,10 +149,10 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     %{output_tracks: output_tracks} = state
 
     case output_tracks[id] do
-      {:connected, pad} ->
+      %{status: :connected, pad: pad} ->
         {[buffer: {pad, buffer}], state}
 
-      {:awaiting, track} ->
+      %{status: :awaiting, track: track} ->
         Membrane.Logger.warning("""
         Dropping packet of track #{inspect(id)}, kind #{inspect(track.kind)} \
         that arrived before the SDP answer was sent.
@@ -180,8 +188,11 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       receive_new_tracks()
       |> Enum.map_reduce(state.awaiting_outputs, fn track, awaiting_outputs ->
         case List.keytake(awaiting_outputs, track.kind, 0) do
-          nil -> {{track.id, {:awaiting, track}}, awaiting_outputs}
-          {{_kind, pad}, awaiting_outputs} -> {{track.id, {:connected, pad}}, awaiting_outputs}
+          nil ->
+            {{track.id, %{status: :awaiting, track: track, pad: nil}}, awaiting_outputs}
+
+          {{_kind, pad}, awaiting_outputs} ->
+            {{track.id, %{status: :connected, track: track, pad: pad}}, awaiting_outputs}
         end
       end)
 
@@ -193,21 +204,31 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
     tracks_notification =
       Enum.flat_map(new_tracks, fn
-        {_id, {:awaiting, track}} -> [track]
-        _other -> []
+        {_id, %{status: :awaiting, track: track}} -> [track]
+        _connected_track -> []
       end)
       |> case do
         [] -> []
         tracks -> [notify_parent: {:new_tracks, tracks}]
       end
 
-    stream_formats =
+    stream_start_actions =
       Enum.flat_map(new_tracks, fn
-        {_id, {:connected, pad}} -> [stream_format: {pad, %Membrane.RTP{}}]
-        _other -> []
+        {_id, %{status: :connected, track: %{kind: :video}, pad: Pad.ref(:output, id) = pad}}
+        when state.keyframe_interval != nil ->
+          [
+            stream_format: {pad, %Membrane.RTP{}},
+            start_timer: {{:request_keyframe, id}, state.keyframe_interval}
+          ]
+
+        {_id, %{status: :connected, pad: pad}} ->
+          [stream_format: {pad, %Membrane.RTP{}}]
+
+        _other ->
+          []
       end)
 
-    {tracks_notification ++ stream_formats, state}
+    {tracks_notification ++ stream_start_actions, state}
   end
 
   @impl true
@@ -240,11 +261,14 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     handle_close(ctx, state)
   end
 
+  @impl true
+  def handle_tick({:request_keyframe, track_id}, _ctx, state) do
+    :ok = PeerConnection.send_pli(state.pc, track_id)
+    {[], state}
+  end
+
   defp maybe_answer(state) do
-    if Enum.all?(state.output_tracks, fn
-         {_id, {:connected, _pad}} -> true
-         _track -> false
-       end) do
+    if Enum.all?(state.output_tracks, fn {_id, %{status: status}} -> status == :connected end) do
       %{pc: pc} = state
       {:ok, answer} = PeerConnection.create_answer(pc)
       :ok = PeerConnection.set_local_description(pc, answer)
@@ -260,6 +284,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     end
   end
 
+  @spec receive_new_tracks() :: [ExWebRTC.MediaStreamTrack.t()]
   defp receive_new_tracks(), do: do_receive_new_tracks([])
 
   defp do_receive_new_tracks(acc) do

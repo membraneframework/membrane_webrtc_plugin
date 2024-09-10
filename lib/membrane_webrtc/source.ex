@@ -15,7 +15,6 @@ defmodule Membrane.WebRTC.Source do
   the `t:new_tracks/0` notification is sent. Then, the corresponding pads
   should be linked - the id of each pad should match one of the track ids.
   """
-  alias Membrane.WebRTC.KeyframeRequester
   use Membrane.Bin
 
   alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
@@ -45,7 +44,8 @@ defmodule Membrane.WebRTC.Source do
                 spec: Membrane.Time.t() | nil,
                 default: nil,
                 description: """
-                If not set to `nil` a keyframe will be requested as often as specified.
+                If not set to `nil` a keyframe will be requested as often as specified on each video
+                track.
                 """
               ],
               ice_servers: [
@@ -76,7 +76,8 @@ defmodule Membrane.WebRTC.Source do
       child(:webrtc, %ExWebRTCSource{
         signaling: signaling,
         video_codec: opts.video_codec,
-        ice_servers: opts.ice_servers
+        ice_servers: opts.ice_servers,
+        keyframe_interval: opts.keyframe_interval
       })
 
     state = %{tracks: %{}} |> Map.merge(opts)
@@ -121,19 +122,17 @@ defmodule Membrane.WebRTC.Source do
     })
   end
 
-  defp get_depayloader(builder, :video, %{video_codec: :vp8} = state) do
+  defp get_depayloader(builder, :video, %{video_codec: :vp8}) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
     })
-    |> child(%KeyframeRequester{keyframe_interval: state.keyframe_interval})
   end
 
-  defp get_depayloader(builder, :video, %{video_codec: :h264} = state) do
+  defp get_depayloader(builder, :video, %{video_codec: :h264}) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
     })
-    |> child(%KeyframeRequester{keyframe_interval: state.keyframe_interval})
   end
 end
