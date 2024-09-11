@@ -44,7 +44,7 @@ defmodule Membrane.WebRTC.Source do
                 spec: Membrane.Time.t() | nil,
                 default: nil,
                 description: """
-                If not set to `nil` a keyframe will be requested as often as specified on each video
+                If set, a keyframe will be requested as often as specified on each video
                 track.
                 """
               ],
