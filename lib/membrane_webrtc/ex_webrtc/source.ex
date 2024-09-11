@@ -17,6 +17,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     options: [kind: [default: nil]]
 
   defmodule State do
+    @moduledoc false
+
     @type output_track :: %{
             status: :awaiting | :connected,
             pad: Membrane.Pad.ref() | nil,
