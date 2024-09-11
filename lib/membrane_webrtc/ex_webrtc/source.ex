@@ -159,9 +159,10 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             []
           end
 
-        Bunch.Struct.update_in(state, [:output_tracks, id], fn output_track ->
-          %{output_track | first_packet_received: true}
-        end)
+        state =
+          Bunch.Struct.update_in(state, [:output_tracks, id], fn output_track ->
+            %{output_track | first_packet_received: true}
+          end)
 
         {[buffer: {pad, buffer}] ++ timer_action, state}
 
