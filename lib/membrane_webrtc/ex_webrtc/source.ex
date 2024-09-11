@@ -22,7 +22,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     @type output_track :: %{
             status: :awaiting | :connected,
             pad: Membrane.Pad.ref() | nil,
-            track: ExWebRTC.MediaStreamTrack.t()
+            track: ExWebRTC.MediaStreamTrack.t(),
+            first_packet_received: boolean()
           }
 
     @type t :: %__MODULE__{
@@ -103,14 +104,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       end)
       |> maybe_answer()
 
-    timer_action =
-      if state.output_tracks[pad_id].track.kind == :video and state.keyframe_interval != nil do
-        [start_timer: {{:request_keyframe, pad_id}, state.keyframe_interval}]
-      else
-        []
-      end
-
-    {[stream_format: {pad, %Membrane.RTP{}}] ++ timer_action, state}
+    {[stream_format: {pad, %Membrane.RTP{}}], state}
   end
 
   @impl true
@@ -148,12 +142,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       metadata: %{rtp: packet |> Map.from_struct() |> Map.delete(:payload)}
     }
 
-    %{output_tracks: output_tracks} = state
-
-    case output_tracks[id] do
-      %{status: :connected, pad: pad} ->
-        {[buffer: {pad, buffer}], state}
-
+    case state.output_tracks[id] do
       %{status: :awaiting, track: track} ->
         Membrane.Logger.warning("""
         Dropping packet of track #{inspect(id)}, kind #{inspect(track.kind)} \
@@ -161,6 +150,23 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         """)
 
         {[], state}
+
+      %{status: :connected, pad: pad, track: %{kind: kind}, first_packet_received: false} ->
+        timer_action =
+          if kind == :video and state.keyframe_interval != nil do
+            [start_timer: {{:request_keyframe, id}, state.keyframe_interval}]
+          else
+            []
+          end
+
+        Bunch.Struct.update_in(state, [:output_tracks, id], fn output_track ->
+          %{output_track | first_packet_received: true}
+        end)
+
+        {[buffer: {pad, buffer}] ++ timer_action, state}
+
+      %{status: :connected, pad: pad} ->
+        {[buffer: {pad, buffer}], state}
     end
   end
 
@@ -191,10 +197,14 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       |> Enum.map_reduce(state.awaiting_outputs, fn track, awaiting_outputs ->
         case List.keytake(awaiting_outputs, track.kind, 0) do
           nil ->
-            {{track.id, %{status: :awaiting, track: track, pad: nil}}, awaiting_outputs}
+            {{track.id,
+              %{status: :awaiting, track: track, pad: nil, first_packet_received: false}},
+             awaiting_outputs}
 
           {{_kind, pad}, awaiting_outputs} ->
-            {{track.id, %{status: :connected, track: track, pad: pad}}, awaiting_outputs}
+            {{track.id,
+              %{status: :connected, track: track, pad: pad, first_packet_received: false}},
+             awaiting_outputs}
         end
       end)
 
@@ -214,15 +224,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         tracks -> [notify_parent: {:new_tracks, tracks}]
       end
 
-    stream_start_actions =
+    stream_formats =
       Enum.flat_map(new_tracks, fn
-        {_id, %{status: :connected, track: %{kind: :video}, pad: Pad.ref(:output, id) = pad}}
-        when state.keyframe_interval != nil ->
-          [
-            stream_format: {pad, %Membrane.RTP{}},
-            start_timer: {{:request_keyframe, id}, state.keyframe_interval}
-          ]
-
         {_id, %{status: :connected, pad: pad}} ->
           [stream_format: {pad, %Membrane.RTP{}}]
 
@@ -230,7 +233,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
           []
       end)
 
-    {tracks_notification ++ stream_start_actions, state}
+    {tracks_notification ++ stream_formats, state}
   end
 
   @impl true
