@@ -25,6 +25,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @max_rtp_timestamp 2 ** 32 - 1
   @max_rtp_seq_num 2 ** 16 - 1
+  @keyframe_request_throttle_time Membrane.Time.milliseconds(500)
 
   @impl true
   def handle_init(_ctx, opts) do
@@ -40,8 +41,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        video_codec: opts.video_codec,
-       ice_servers: opts.ice_servers,
-       last_keyframe_request_ts: nil
+       ice_servers: opts.ice_servers
      }}
   end
 
@@ -85,12 +85,14 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     negotiated_tracks = List.delete(negotiated_tracks, track)
 
     params = %{
+      kind: track.kind,
       clock_rate:
         case track.kind do
           :audio -> ExWebRTCUtils.codec_clock_rate(:opus)
           :video -> ExWebRTCUtils.codec_clock_rate(state.video_codec)
         end,
-      seq_num: Enum.random(0..@max_rtp_seq_num)
+      seq_num: Enum.random(0..@max_rtp_seq_num),
+      last_keyframe_request_ts: Membrane.Time.monotonic_time() - @keyframe_request_throttle_time
     }
 
     input_tracks = Map.put(input_tracks, pad, {track.id, params})
@@ -137,39 +139,35 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({:ex_webrtc, _from, {:rtcp, rtcp_packets}}, ctx, state) do
-    pli? =
-      rtcp_packets
-      |> Enum.reduce(false, fn
-        {_track_id, %PLI{} = packet}, _pli? ->
-          Membrane.Logger.debug("Keyframe request received: #{inspect(packet)}")
-          true
+  def handle_info({:ex_webrtc, _from, {:rtcp, rtcp_packets}}, _ctx, state) do
+    time = Membrane.Time.monotonic_time()
 
-        packet, pli? ->
+    {keyframe_requests, input_tracks} =
+      rtcp_packets
+      |> Enum.flat_map(fn
+        {track_id, %PLI{} = packet} ->
+          Membrane.Logger.debug("Keyframe request received: #{inspect(packet)}")
+          [track_id]
+
+        packet ->
           Membrane.Logger.debug_verbose("Ignoring RTCP packet: #{inspect(packet)}")
-          pli?
+          []
+      end)
+      |> Enum.flat_map_reduce(state.input_tracks, fn track_id, input_tracks ->
+        {pad, {_id, props}} =
+          Enum.find(input_tracks, fn {_pad, {id, _props}} -> track_id == id end)
+
+        if props.kind == :video and
+             time - props.last_keyframe_request_ts > @keyframe_request_throttle_time do
+          event = [event: {pad, %Membrane.KeyframeRequestEvent{}}]
+          props = %{props | last_keyframe_request_ts: time}
+          {event, %{input_tracks | pad => {track_id, props}}}
+        else
+          {[], input_tracks}
+        end
       end)
 
-    now = System.os_time(:millisecond) |> Membrane.Time.milliseconds()
-    then = state.last_keyframe_request_ts
-
-    request_keyframe? = pli? and (then == nil or now - then >= Membrane.Time.second())
-    state = if request_keyframe?, do: %{state | last_keyframe_request_ts: now}, else: state
-
-    actions =
-      if request_keyframe? do
-        ctx.pads
-        |> Enum.flat_map(fn {pad_ref, pad_data} ->
-          case pad_data.options.kind do
-            :video -> [event: {pad_ref, %Membrane.KeyframeRequestEvent{}}]
-            :audio -> []
-          end
-        end)
-      else
-        []
-      end
-
-    {actions, state}
+    {keyframe_requests, %{state | input_tracks: input_tracks}}
   end
 
   @impl true

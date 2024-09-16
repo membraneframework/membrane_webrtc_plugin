@@ -11,6 +11,61 @@ defmodule Membrane.WebRTC.IntegrationTest do
   alias Membrane.WebRTC
   alias Membrane.WebRTC.SignalingChannel
 
+  defmodule KeyframeTestSource do
+    use Membrane.Source
+
+    def_output_pad :output, flow_control: :manual, accepted_format: _any
+
+    def_options stream_format: [spec: Membrane.StreamFormat.t()]
+
+    @impl true
+    def handle_playing(_ctx, state) do
+      buffers =
+        Bunch.Enum.repeated(
+          %Membrane.Buffer{payload: "dupa" <> <<0::1000*8>>, pts: 0, dts: 0},
+          10
+        )
+
+      {[stream_format: {:output, state.stream_format}, buffer: {:output, buffers}], state}
+    end
+
+    @impl true
+    def handle_demand(:output, _size, _unit, _ctx, state) do
+      {[], state}
+    end
+
+    @impl true
+    def handle_event(:output, %Membrane.KeyframeRequestEvent{}, _ctx, state) do
+      {[notify_parent: :keyframe_requested], state}
+    end
+
+    @impl true
+    def handle_event(:output, _event, _ctx, state) do
+      {[], state}
+    end
+  end
+
+  defmodule KeyframeTestSink do
+    use Membrane.Sink
+
+    def_input_pad :input, accepted_format: _any
+
+    @impl true
+    def handle_playing(_ctx, state) do
+      {[notify_parent: :playing], state}
+    end
+
+    @impl true
+    def handle_buffer(:input, buffer, _ctx, state) do
+      {[notify_parent: {:buffer, buffer}], state}
+    end
+
+    @impl true
+    def handle_parent_notification(:request_keyframe, _ctx, state) do
+      {[event: {:input, %Membrane.KeyframeRequestEvent{}}], state}
+    end
+  end
+
   defmodule Utils do
     import ExUnit.Assertions
 
@@ -72,6 +127,59 @@ defmodule Membrane.WebRTC.IntegrationTest do
           |> child({:video_sink, id}, %Membrane.File.Sink{location: "#{tmp_dir}/out_video#{id}"})
         ]
       )
+    end
+
+    def run_keyframe_testing_pipelines(opts \\ []) do
+      signaling = SignalingChannel.new()
+
+      send_pipeline = Testing.Pipeline.start_link_supervised!()
+
+      video_src = %KeyframeTestSource{
+        stream_format: %Membrane.RemoteStream{content_format: Membrane.VP8, type: :packetized}
+      }
+
+      audio_src = %KeyframeTestSource{stream_format: %Membrane.Opus{channels: 2}}
+
+      Testing.Pipeline.execute_actions(send_pipeline,
+        spec: [
+          child(:vid1, video_src)
+          |> via_in(:input, options: [kind: :video])
+          |> get_child(:webrtc),
+          child(:vid2, video_src)
+          |> via_in(:input, options: [kind: :video])
+          |> get_child(:webrtc),
+          child(:audio, audio_src)
+          |> via_in(:input, options: [kind: :audio])
+          |> get_child(:webrtc),
+          child(:webrtc, %WebRTC.Sink{signaling: signaling, tracks: [:audio, :video, :video]})
+        ]
+      )
+
+      receive_pipeline = Testing.Pipeline.start_link_supervised!()
+
+      Testing.Pipeline.execute_actions(receive_pipeline,
+        spec: [
+          child(:webrtc, %WebRTC.Source{
+            signaling: signaling,
+            keyframe_interval: opts[:keyframe_interval]
+          }),
+          get_child(:webrtc)
+          |> via_out(:output, options: [kind: :video])
+          |> child(:vid1, KeyframeTestSink),
+          get_child(:webrtc)
+          |> via_out(:output, options: [kind: :video])
+          |> child(:vid2, KeyframeTestSink),
+          get_child(:webrtc)
+          |> via_out(:output, options: [kind: :audio])
+          |> child(:audio, KeyframeTestSink)
+        ]
+      )
+
+      assert_pipeline_notified(receive_pipeline, :vid1, {:buffer, _buffer})
+      assert_pipeline_notified(receive_pipeline, :vid2, {:buffer, _buffer})
+      assert_pipeline_notified(receive_pipeline, :audio, {:buffer, _buffer})
+
+      {send_pipeline, receive_pipeline}
     end
   end
 
@@ -175,6 +283,52 @@ defmodule Membrane.WebRTC.IntegrationTest do
       assert File.read!("#{tmp_dir}/out_video1") == File.read!("test/fixtures/ref_video")
       assert File.read!("#{tmp_dir}/out_audio2") == File.read!("test/fixtures/ref_audio")
       assert File.read!("#{tmp_dir}/out_video2") == File.read!("test/fixtures/ref_video")
+    end
+  end
+
+  defmodule KeyframeRequestEvents do
+    use ExUnit.Case, async: true
+
+    import Utils
+
+    test "keyframe request events" do
+      {send_pipeline, receive_pipeline} = run_keyframe_testing_pipelines()
+
+      Testing.Pipeline.notify_child(receive_pipeline, :vid1, :request_keyframe)
+      Testing.Pipeline.notify_child(receive_pipeline, :vid2, :request_keyframe)
+      Testing.Pipeline.notify_child(receive_pipeline, :audio, :request_keyframe)
+
+      assert_pipeline_notified(send_pipeline, :vid1, :keyframe_requested)
+      assert_pipeline_notified(send_pipeline, :vid2, :keyframe_requested)
+      refute_pipeline_notified(send_pipeline, :vid1, :keyframe_requested)
+      refute_pipeline_notified(send_pipeline, :vid2, :keyframe_requested)
+      refute_pipeline_notified(send_pipeline, :audio, :keyframe_requested)
+
+      Testing.Pipeline.terminate(send_pipeline)
+      Testing.Pipeline.terminate(receive_pipeline)
+    end
+  end
+
+  defmodule KeyframeInterval do
+    use ExUnit.Case, async: true
+
+    import Utils
+
+    test "keyframe request events" do
+      {send_pipeline, receive_pipeline} =
+        run_keyframe_testing_pipelines(keyframe_interval: Membrane.Time.seconds(1))
+
+      Enum.each(1..3, fn _i ->
+        assert_pipeline_notified(send_pipeline, :vid1, :keyframe_requested)
+        assert_pipeline_notified(send_pipeline, :vid2, :keyframe_requested)
+        refute_pipeline_notified(send_pipeline, :vid1, :keyframe_requested, 800)
+        refute_pipeline_notified(send_pipeline, :vid2, :keyframe_requested, 0)
+      end)
+
+      refute_pipeline_notified(send_pipeline, :audio, :keyframe_requested)
+
+      Testing.Pipeline.terminate(send_pipeline)
+      Testing.Pipeline.terminate(receive_pipeline)
     end
   end
 end
