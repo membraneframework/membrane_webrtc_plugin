@@ -144,16 +144,16 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     {keyframe_requests, input_tracks} =
       rtcp_packets
-      |> Enum.flat_map(fn
-        {track_id, %PLI{} = packet} ->
+      |> Enum.filter(fn
+        {_track_id, %PLI{} = packet} ->
           Membrane.Logger.debug("Keyframe request received: #{inspect(packet)}")
-          [track_id]
+          true
 
         packet ->
           Membrane.Logger.debug_verbose("Ignoring RTCP packet: #{inspect(packet)}")
-          []
+          false
       end)
-      |> Enum.flat_map_reduce(state.input_tracks, fn track_id, input_tracks ->
+      |> Enum.flat_map_reduce(state.input_tracks, fn {track_id, _pli}, input_tracks ->
         {pad, {_id, props}} =
           Enum.find(input_tracks, fn {_pad, {id, _props}} -> track_id == id end)
 

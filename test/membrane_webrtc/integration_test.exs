@@ -22,7 +22,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
     def handle_playing(_ctx, state) do
       buffers =
         Bunch.Enum.repeated(
-          %Membrane.Buffer{payload: "dupa" <> <<0::1000*8>>, pts: 0, dts: 0},
+          %Membrane.Buffer{payload: "mock" <> <<0::1000*8>>, pts: 0, dts: 0},
           10
         )
 
