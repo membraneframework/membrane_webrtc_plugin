@@ -1,7 +1,7 @@
 defmodule Membrane.WebRTC.Plugin.Mixfile do
   use Mix.Project
 
-  @version "0.22.0"
+  @version "0.22.1"
   @github_url "https://github.com/membraneframework/membrane_webrtc_plugin"
 
   def project do
@@ -40,9 +40,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:ex_webrtc, "~> 0.4.0"},
       {:membrane_rtp_plugin, "~> 0.29.0"},
       {:membrane_rtp_h264_plugin, "~> 0.19.0"},
-      # {:membrane_rtp_vp8_plugin, "~> 0.9.2"},
-      {:membrane_rtp_vp8_plugin,
-       github: "membraneframework/membrane_rtp_vp8_plugin", branch: "update_vp8_format"},
+      {:membrane_rtp_vp8_plugin, "~> 0.9.2"},
       {:membrane_rtp_opus_plugin, "~> 0.9.0"},
       {:bandit, "~> 1.2"},
       {:websock_adapter, "~> 0.5.0"},
