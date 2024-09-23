@@ -55,6 +55,11 @@ defmodule Membrane.WebRTC.Source do
               depayload_rtp: [
                 spec: boolean(),
                 default: true
+              ],
+              sdp_candidates_timeout: [
+                spec: Membrane.Time.t(),
+                default: Membrane.Time.seconds(1),
+                default_inspector: &Membrane.Time.pretty_duration/1
               ]
 
   def_output_pad :output,
@@ -77,7 +82,8 @@ defmodule Membrane.WebRTC.Source do
         signaling: signaling,
         video_codec: opts.video_codec,
         ice_servers: opts.ice_servers,
-        keyframe_interval: opts.keyframe_interval
+        keyframe_interval: opts.keyframe_interval,
+        sdp_candidates_timeout: opts.sdp_candidates_timeout
       })
 
     state = %{tracks: %{}} |> Map.merge(opts)

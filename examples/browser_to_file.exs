@@ -23,10 +23,23 @@ defmodule Example.Pipeline do
 
   @impl true
   def handle_init(_ctx, opts) do
+    # p = self()
+
+    # Membrane.WebRTC.WhipServer.start_link(
+    #   port: 8888,
+    #   handle_new_client: fn signaling, _token ->
+    #     send(p, {:ready, signaling})
+    #     :ok
+    #   end
+    # )
+
+    # signaling = receive do: ({:ready, signaling} -> signaling)
+
     spec =
       [
         child(:webrtc, %WebRTC.Source{
-          signaling: {:websocket, port: opts[:port]}
+          signaling: {:whip, port: 8888},
+          video_codec: :h264
         }),
         child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
@@ -35,6 +48,7 @@ defmodule Example.Pipeline do
         |> get_child(:matroska),
         get_child(:webrtc)
         |> via_out(:output, options: [kind: :video])
+        |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
         |> get_child(:matroska),
         get_child(:matroska)
         |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"})
