@@ -81,20 +81,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     signaling =
       case state.signaling do
         {:whip, opts} ->
-          signaling = SignalingChannel.new()
-          clients_cnt = :atomics.new(1, [])
-
-          handle_new_client = fn _token ->
-            clients_cnt = :atomics.add_get(clients_cnt, 1, 1)
-            if clients_cnt == 1, do: {:ok, signaling}, else: {:error, :already_connected}
-          end
-
-          Membrane.UtilitySupervisor.start_child(ctx.utility_supervisor, {
-            WhipServer,
-            [handle_new_client: handle_new_client] ++ opts
-          })
-
-          signaling
+          setup_whip(ctx, opts)
 
         {:websocket, opts} ->
           SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
@@ -374,5 +361,22 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   defp handle_close(_ctx, state) do
     {[], %{state | status: :closed}}
+  end
+
+  defp setup_whip(ctx, opts) do
+    signaling = SignalingChannel.new()
+    clients_cnt = :atomics.new(1, [])
+
+    handle_new_client = fn _token ->
+      clients_cnt = :atomics.add_get(clients_cnt, 1, 1)
+      if clients_cnt == 1, do: {:ok, signaling}, else: {:error, :already_connected}
+    end
+
+    Membrane.UtilitySupervisor.start_child(ctx.utility_supervisor, {
+      WhipServer,
+      [handle_new_client: handle_new_client] ++ opts
+    })
+
+    signaling
   end
 end

@@ -331,4 +331,45 @@ defmodule Membrane.WebRTC.IntegrationTest do
       Testing.Pipeline.terminate(receive_pipeline)
     end
   end
+
+  defmodule WHIP do
+    use ExUnit.Case, async: true
+
+    use ExUnit.Case, async: true
+
+    import Utils
+
+    @tag :target
+    @tag :tmp_dir
+    test "send and receive a file over WHIP", %{tmp_dir: tmp_dir} do
+      send_pipeline = Testing.Pipeline.start_link_supervised!()
+
+      prepare_input(send_pipeline,
+        webrtc: %WebRTC.Sink{signaling: {:whip, uri: "http://localhost:6789"}}
+      )
+
+      receive_pipeline = Testing.Pipeline.start_link_supervised!()
+
+      prepare_output(receive_pipeline, tmp_dir,
+        webrtc: %WebRTC.Source{signaling: {:whip, ip: {127, 0, 0, 1}, port: 6789}}
+      )
+
+      assert_pipeline_notified(
+        send_pipeline,
+        :webrtc,
+        {:end_of_stream, :audio},
+        fixture_processing_timeout()
+      )
+
+      assert_pipeline_notified(send_pipeline, :webrtc, {:end_of_stream, :video}, 1_000)
+      # Time for the stream to arrive to the receiver
+      Process.sleep(200)
+      Testing.Pipeline.terminate(send_pipeline)
+      assert_end_of_stream(receive_pipeline, {:audio_sink, _id}, :input, 1_000)
+      assert_end_of_stream(receive_pipeline, {:video_sink, _id}, :input, 1_000)
+      Testing.Pipeline.terminate(receive_pipeline)
+      assert File.read!("#{tmp_dir}/out_audio") == File.read!("test/fixtures/ref_audio")
+      assert File.read!("#{tmp_dir}/out_video") == File.read!("test/fixtures/ref_video")
+    end
+  end
 end

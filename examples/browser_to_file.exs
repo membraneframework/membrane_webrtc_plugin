@@ -38,8 +38,8 @@ defmodule Example.Pipeline do
     spec =
       [
         child(:webrtc, %WebRTC.Source{
-          signaling: {:whip, port: 8888},
-          video_codec: :h264
+          # signaling: {:whip, port: opts[:port], ip: :any, serve_static: "examples/assets"}
+          signaling: opts[:port]
         }),
         child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
@@ -48,7 +48,6 @@ defmodule Example.Pipeline do
         |> get_child(:matroska),
         get_child(:webrtc)
         |> via_out(:output, options: [kind: :video])
-        |> child(%Membrane.H264.Parser{output_stream_structure: :avc3})
         |> get_child(:matroska),
         get_child(:matroska)
         |> child(:sink, %Membrane.File.Sink{location: "recording.mkv"})
@@ -68,25 +67,43 @@ defmodule Example.Pipeline do
   end
 end
 
-{:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
-Process.monitor(supervisor)
+defmodule Router do
+  use Plug.Router
 
-:ok = :inets.start()
+  plug(Plug.Logger)
+  plug(Plug.Static, at: "/", from: "examples/assets")
+  plug(:match)
+  plug(:dispatch)
 
-{:ok, _server} =
-  :inets.start(:httpd,
-    bind_address: ~c"localhost",
-    port: 8000,
-    document_root: ~c"#{__DIR__}/assets/browser_to_file",
-    server_name: ~c"webrtc",
-    server_root: "/tmp"
+  forward(
+    "/",
+    to: Membrane.WebRTC.WhipServer.Router,
+    handle_new_client: &__MODULE__.handle_new_client/1
   )
 
-Logger.info("""
-Visit http://localhost:8000/index.html to start the stream. To finish the recording properly,
-don't terminate this script - instead click 'disconnect' in the website or close the browser tab.
-""")
+  def handle_new_client(_token) do
+    signaling = Membrane.WebRTC.SignalingChannel.new()
 
-receive do
-  {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok
+    {:ok, _supervisor, _pipeline} =
+      Membrane.Pipeline.start_link(Example.Pipeline, port: signaling)
+
+    {:ok, signaling}
+  end
 end
+
+Bandit.start_link(plug: Router, ip: :any, port: 8829)
+
+Process.sleep(:infinity)
+
+# port = 8829
+# {:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: port)
+# Process.monitor(supervisor)
+
+# Logger.info("""
+# Visit http://localhost:#{port}/index.html to start the stream. To finish the recording properly,
+# don't terminate this script - instead click 'disconnect' in the website or close the browser tab.
+# """)
+
+# receive do
+#   {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok
+# end

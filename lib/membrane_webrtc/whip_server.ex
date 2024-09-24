@@ -1,41 +1,95 @@
 defmodule Membrane.WebRTC.WhipServer do
+  @moduledoc """
+  Server accepting WHIP connections.
+
+  Accepts the following options:
+
+  - `handle_new_client` - function that accepts the client token and returns either
+    the signaling channel to negotiate the connection or error to reject it. The signaling
+    channel can be passed to `Membrane.WebRTC.Source`.
+  - `serve_static` - path to static assets that should be served along with WHIP,
+    useful to serve HTML assets. If set to `false` (default), no static assets are
+    served
+  - Any of `t:Bandit.options/0` - Bandit configuration
+  """
+
+  alias Membrane.WebRTC.SignalingChannel
+
+  @type option ::
+          {:handle_new_client,
+           (token :: String.t() -> {:ok, SignalingChannel.t()} | {:error, reason :: term()})}
+          | {:serve_static, String.t() | false}
+          | {atom, term()}
+  @spec child_spec([option()]) :: Supervisor.child_spec()
   def child_spec(opts) do
     Bandit.child_spec(bandit_opts(opts))
   end
 
+  @spec start_link([option()]) :: Supervisor.on_start()
   def start_link(opts) do
     Bandit.start_link(bandit_opts(opts))
   end
 
   defp bandit_opts(opts) do
-    opts =
-      opts |> Keyword.validate!([:handle_new_client, :port, ip: {0, 0, 0, 0}]) |> Map.new()
-
-    [
-      plug: {__MODULE__.Router, %{handle_new_client: opts.handle_new_client}},
-      scheme: :http,
-      ip: opts.ip,
-      port: opts.port
-    ]
+    {whip_opts, bandit_opts} = Keyword.split(opts, [:handle_new_client, :serve_static])
+    plug = {__MODULE__.Router, whip_opts}
+    [plug: plug] ++ bandit_opts
   end
 
   defmodule Router do
+    @moduledoc """
+    WHIP router pluggable to a plug pipeline.
+
+    Accepts the same options as `Membrane.WebRTC.WhipServer`.
+
+    ## Example
+
+    ```
+    defmodule Router do
+      use Plug.Router
+
+      plug(Plug.Logger)
+      plug(Plug.Static, at: "/static", from: "assets")
+      plug(:match)
+      plug(:dispatch)
+
+      forward(
+        "/whip",
+        to: Membrane.WebRTC.WhipServer.Router,
+        handle_new_client: &__MODULE__.handle_new_client/1
+      )
+
+      def handle_new_client(token) do
+        validate_token!(token)
+        signaling = Membrane.WebRTC.SignalingChannel.new()
+        # pass the signaling channel to a pipeline
+        {:ok, signaling}
+      end
+    end
+
+    Bandit.start_link(plug: Router, ip: any)
+    ```
+    """
     use Plug.Router
 
-    alias Membrane.WebRTC.SignalingChannel
-
-    plug(Plug.Logger)
+    plug(Plug.Logger, log: :info)
     plug(Corsica, origins: "*")
     plug(:match)
     plug(:dispatch)
-    # TODO: the HTTP responses are not completely compliant with the RFCs
+
+    # TODO: the HTTP response codes are not completely compliant with the RFCs
 
     defmodule ClientHandler do
       @moduledoc false
       use GenServer
 
+      @spec start_link(GenServer.options()) :: {:ok, pid()}
       def start_link(opts), do: GenServer.start_link(__MODULE__, [], opts)
+
+      @spec exec(GenServer.server(), (state -> {resp, state})) :: resp
+            when state: term(), resp: term()
       def exec(client_handler, fun), do: GenServer.call(client_handler, {:exec, fun})
+      @spec stop(GenServer.server()) :: :ok
       def stop(client_handler), do: GenServer.stop(client_handler)
 
       @impl true
@@ -57,11 +111,11 @@ defmodule Membrane.WebRTC.WhipServer do
            resource_id = generate_resource_id(),
            {:ok, client_handler} = ClientHandler.start_link(name: handler_name(resource_id)),
            {:ok, answer_sdp} <-
-             get_answer(client_handler, offer_sdp, token, conn.private.handle_new_client) do
+             get_answer(client_handler, offer_sdp, token, conn.private.whip.handle_new_client) do
         Process.unlink(client_handler)
 
         conn
-        |> put_resp_header("location", "#{conn.request_path}resource/#{resource_id}")
+        |> put_resp_header("location", Path.join(conn.request_path, "resource/#{resource_id}"))
         |> put_resp_content_type("application/sdp")
         |> resp(201, answer_sdp)
       else
@@ -71,23 +125,29 @@ defmodule Membrane.WebRTC.WhipServer do
     end
 
     patch "resource/:resource_id" do
-      case get_body(conn, "application/trickle-ice-sdpfrag") do
-        {:ok, body, conn} ->
-          # TODO: this is not compliant with the RFC
-          candidate =
-            body
-            |> Jason.decode!()
-            |> ExWebRTC.ICECandidate.from_json()
+      with {:ok, sdp, conn} <- get_body(conn, "application/trickle-ice-sdpfrag"),
+           sdp = ExSDP.parse!(sdp),
+           media = List.first(sdp.media),
+           {"candidate", candidate} <- ExSDP.get_attribute(media, "candidate") || :no_candidate do
+        {:ice_ufrag, ufrag} = ExSDP.get_attribute(sdp, :ice_ufrag)
+        {:mid, mid} = ExSDP.get_attribute(media, :mid)
 
-          ClientHandler.exec(handler_name(resource_id), fn signaling ->
-            SignalingChannel.signal(signaling, candidate)
-            {:ok, signaling}
-          end)
+        candidate = %ExWebRTC.ICECandidate{
+          candidate: candidate,
+          sdp_mid: mid,
+          username_fragment: ufrag,
+          sdp_m_line_index: 0
+        }
 
-          resp(conn, 204, "")
+        ClientHandler.exec(handler_name(resource_id), fn signaling ->
+          SignalingChannel.signal(signaling, candidate)
+          {:ok, signaling}
+        end)
 
-        {:error, _res} ->
-          resp(conn, 400, "Bad request")
+        resp(conn, 204, "")
+      else
+        :no_candidate -> resp(conn, 204, "")
+        {:error, _res} -> resp(conn, 400, "Bad request")
       end
       |> send_resp()
     end
@@ -97,14 +157,34 @@ defmodule Membrane.WebRTC.WhipServer do
       send_resp(conn, 204, "")
     end
 
+    get "static/*_" do
+      case conn.private.whip.plug_static do
+        nil -> send_resp(conn, 404, "Not found")
+        plug_static -> Plug.Static.call(conn, plug_static)
+      end
+    end
+
     match _ do
       send_resp(conn, 404, "Not found")
     end
 
     @impl true
+    def init(opts) do
+      {handle_new_client, opts} = Keyword.pop(opts, :handle_new_client)
+      unless handle_new_client, do: raise("Missing option 'handle_new_client'")
+      {serve_static, opts} = Keyword.pop(opts, :serve_static, false)
+      if opts != [], do: raise("Unknown options: #{Enum.join(opts, ", ")}")
+
+      plug_static =
+        if serve_static, do: Plug.Static.init(at: "static", from: serve_static)
+
+      super(%{handle_new_client: handle_new_client, plug_static: plug_static})
+    end
+
+    @impl true
     def call(conn, opts) do
       conn
-      |> put_private(:handle_new_client, opts.handle_new_client)
+      |> put_private(:whip, opts)
       |> super(opts)
     end
 

@@ -99,7 +99,7 @@ defmodule Membrane.WebRTC.SignalingChannel do
   The calling process must be previously registered with `register_peer/2`.
   See the moduledoc for details.
   """
-  @spec signal(t, message_content) :: :ok
+  @spec signal(t, message_content, metadata :: map) :: :ok
   def signal(%__MODULE__{pid: pid}, message, metadata \\ %{}) do
     send(pid, {:signal, self(), message, metadata})
     :ok
