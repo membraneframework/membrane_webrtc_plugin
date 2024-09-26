@@ -55,7 +55,17 @@ defmodule Membrane.WebRTC.Sink do
               ],
               video_codec: [
                 spec: :vp8 | :h264 | [:vp8 | :h264],
-                default: :vp8
+                default: [:vp8, :h264],
+                description: """
+                Video codecs, that #{inspect(__MODULE__)} will try to negotiatie in SDP
+                message exchange. Even if `[:vp8, :h264]` is passed to this option, there
+                is a chance, that one of these codecs won't be approved by the second
+                WebRTC peer.
+
+                After SDP messages exchange, #{inspect(__MODULE__)} will send a parent
+                notification `{:negotiated_video_codecs, codecs}`, where codecs is
+                the list of the video codecs, that might be received by this component.
+                """
               ],
               ice_servers: [
                 spec: [ExWebRTC.PeerConnection.Configuration.ice_server()],
@@ -148,6 +158,11 @@ defmodule Membrane.WebRTC.Sink do
   @impl true
   def handle_child_notification({:new_tracks, tracks}, :webrtc, _ctx, state) do
     {[notify_parent: {:new_tracks, tracks}], state}
+  end
+
+  @impl true
+  def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
+    {[notify_parent: {:negotiated_video_codecs, codecs}], state}
   end
 
   @impl true
