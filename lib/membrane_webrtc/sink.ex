@@ -17,6 +17,7 @@ defmodule Membrane.WebRTC.Sink do
   """
   use Membrane.Bin
 
+  alias __MODULE__.VideoDispatcher
   alias Membrane.WebRTC.{ExWebRTCSink, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
@@ -53,7 +54,7 @@ defmodule Membrane.WebRTC.Sink do
                 """
               ],
               video_codec: [
-                spec: :vp8 | :h264,
+                spec: :vp8 | :h264 | [:vp8 | :h264],
                 default: :vp8
               ],
               ice_servers: [
@@ -104,14 +105,37 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:input, _pid) = pad_ref, ctx, state) do
-    %{kind: kind} = ctx.pad_options
-
+  def handle_pad_added(Pad.ref(:input, pid) = pad_ref, %{pad_options: %{kind: kind}}, state) do
     spec =
-      bin_input(pad_ref)
-      |> then(if state.payload_rtp, do: &child(&1, get_payloader(kind, state)), else: & &1)
-      |> via_in(pad_ref, options: [kind: kind])
-      |> get_child(:webrtc)
+      cond do
+        not state.payload_rtp ->
+          bin_input(pad_ref)
+          |> via_in(pad_ref, options: [kind: kind])
+          |> get_child(:webrtc)
+
+        kind == :audio ->
+          bin_input(pad_ref)
+          |> child({:rtp_opus_payloader, pid}, Membrane.RTP.Opus.Payloader)
+          |> via_in(pad_ref, options: [kind: :audio])
+          |> get_child(:webrtc)
+
+        kind == :video ->
+          [
+            bin_input(pad_ref)
+            |> child({:video_dispatcher, pid}, VideoDispatcher)
+            |> via_out(:h264_output)
+            |> child({:rtp_h264_payloader, pid}, %Membrane.RTP.H264.Payloader{
+              max_payload_size: 1000
+            })
+            |> child({:funnel, pid}, %Membrane.Funnel{end_of_stream: :on_last_pad})
+            |> via_in(pad_ref, options: [kind: :video])
+            |> get_child(:webrtc),
+            get_child({:video_dispatcher, pid})
+            |> via_out(:vp8_output)
+            |> child({:rtp_vp8_payloader, pid}, Membrane.RTP.VP8.Payloader)
+            |> get_child({:funnel, pid})
+          ]
+      end
 
     {[spec: spec], state}
   end
@@ -140,11 +164,4 @@ defmodule Membrane.WebRTC.Sink do
   def handle_element_end_of_stream(_name, _pad, _ctx, state) do
     {[], state}
   end
-
-  defp get_payloader(:audio, _state), do: Membrane.RTP.Opus.Payloader
-
-  defp get_payloader(:video, %{video_codec: :h264}),
-    do: %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
-
-  defp get_payloader(:video, %{video_codec: :vp8}), do: Membrane.RTP.VP8.Payloader
 end

@@ -37,7 +37,7 @@ defmodule Membrane.WebRTC.Source do
                 """
               ],
               video_codec: [
-                spec: :vp8 | :h264,
+                spec: :vp8 | :h264 | [:vp8 | :h264],
                 default: :vp8
               ],
               keyframe_interval: [
