@@ -17,7 +17,11 @@ defmodule Membrane.WebRTC.Sink do
   """
   use Membrane.Bin
 
-  alias __MODULE__.VideoDispatcher
+  alias __MODULE__.ForwardingFilter
+
+  alias Membrane.H264
+  alias Membrane.RemoteStream
+  alias Membrane.VP8
   alias Membrane.WebRTC.{ExWebRTCSink, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
@@ -130,22 +134,32 @@ defmodule Membrane.WebRTC.Sink do
           |> get_child(:webrtc)
 
         kind == :video ->
-          [
-            bin_input(pad_ref)
-            |> child({:video_dispatcher, pid}, VideoDispatcher)
-            |> via_out(:h264_output)
-            |> child({:rtp_h264_payloader, pid}, %Membrane.RTP.H264.Payloader{
-              max_payload_size: 1000
-            })
-            |> child({:funnel, pid}, %Membrane.Funnel{end_of_stream: :on_last_pad})
-            |> via_in(pad_ref, options: [kind: :video])
-            |> get_child(:webrtc),
-            get_child({:video_dispatcher, pid})
-            |> via_out(:vp8_output)
-            |> child({:rtp_vp8_payloader, pid}, Membrane.RTP.VP8.Payloader)
-            |> get_child({:funnel, pid})
-          ]
+          bin_input(pad_ref)
+          |> child({:forwarding_filter, pad_ref}, ForwardingFilter)
       end
+
+    {[spec: spec], state}
+  end
+
+  @impl true
+  def handle_child_notification(
+        {:stream_format, stream_format},
+        {:forwarding_filter, pad_ref},
+        _ctx,
+        state
+      ) do
+    payoader =
+      case stream_format do
+        %H264{} -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
+        %VP8{} -> Membrane.RTP.VP8.Payloader
+        %RemoteStream{content_format: VP8} -> Membrane.RTP.VP8.Payloader
+      end
+
+    spec =
+      get_child({:forwarding_filter, pad_ref})
+      |> child({:rtp_payloader, pad_ref}, payoader)
+      |> via_in(pad_ref, options: [kind: :video])
+      |> get_child(:webrtc)
 
     {[spec: spec], state}
   end

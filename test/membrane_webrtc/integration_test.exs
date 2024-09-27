@@ -188,7 +188,6 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     import Utils
 
-    @tag :dupa
     @tag :tmp_dir
     test "send and receive a file", %{tmp_dir: tmp_dir} do
       signaling = SignalingChannel.new()
