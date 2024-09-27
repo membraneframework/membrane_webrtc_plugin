@@ -41,10 +41,7 @@ defmodule Example.Pipeline do
 
     if state.audio_track && state.video_track do
       spec = [
-        child(:webrtc, %WebRTC.Sink{
-          signaling: {:websocket, port: state.port},
-          video_codec: [:vp8, :h264]
-        }),
+        child(:webrtc, %WebRTC.Sink{signaling: {:websocket, port: state.port}}),
         get_child(:demuxer)
         |> via_out(Pad.ref(:output, state.video_track))
         |> child({:realtimer, :video_track}, Membrane.Realtimer)
