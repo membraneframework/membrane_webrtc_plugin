@@ -74,18 +74,18 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_playing(_ctx, state) do
-    {:ok, pc} =
-      PeerConnection.start(
-        ice_servers: state.ice_servers,
-        video_codecs: state.video_params,
-        audio_codecs: state.audio_params
-      )
+    # {:ok, pc} =
+    #   PeerConnection.start(
+    #     ice_servers: state.ice_servers,
+    #     video_codecs: state.video_params,
+    #     audio_codecs: state.audio_params
+    #   )
 
-    Process.monitor(pc)
+    # Process.monitor(pc)
     Process.monitor(state.signaling.pid)
     SignalingChannel.register_element(state.signaling)
 
-    {[], %{state | pc: pc, status: :connecting}}
+    {[], %{state | status: :connecting}}
   end
 
   @impl true
@@ -191,6 +191,20 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   @impl true
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     Membrane.Logger.debug("Received SDP offer")
+
+    state =
+      with %{pc: nil} <- state do
+        {:ok, pc} =
+          PeerConnection.start(
+            ice_servers: state.ice_servers,
+            video_codecs: state.video_params,
+            audio_codecs: state.audio_params
+          )
+
+        Process.monitor(pc)
+        %{state | pc: pc}
+      end
+
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
     {new_tracks, awaiting_outputs} =

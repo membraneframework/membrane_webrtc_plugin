@@ -191,14 +191,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     video_codecs = ExWebRTCUtils.get_negotiated_video_codecs(sdp)
 
     to_notify =
-      negotiating_tracks
-      |> Enum.filter(& &1.notify)
-      |> Enum.map(&Map.take(&1, [:id, :kind]))
-
-    # |> Enum.map(fn
-    #   %{kind: :audio} = track -> Map.put(track, :codec, :opus)
-    #   %{kind: :video} = track -> Map.put(track, :codec, video_codecs)
-    # end)
+      negotiating_tracks |> Enum.filter(& &1.notify) |> Enum.map(&Map.take(&1, [:id, :kind]))
 
     new_tracks_notification =
       if to_notify == [], do: [], else: [notify_parent: {:new_tracks, to_notify}]
