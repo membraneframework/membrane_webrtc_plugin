@@ -188,7 +188,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     %{negotiating_tracks: negotiating_tracks, negotiated_tracks: negotiated_tracks} = state
 
-    video_codecs = ExWebRTCUtils.get_negotiated_video_codecs(sdp)
+    video_codecs = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
 
     to_notify =
       negotiating_tracks |> Enum.filter(& &1.notify) |> Enum.map(&Map.take(&1, [:id, :kind]))

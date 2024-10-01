@@ -35,13 +35,21 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             status: :init | :connecting | :connected | :closed,
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
+            video_codecs: [:h264 | :vp8],
             ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
             keyframe_interval: Membrane.Time.t() | nil
           }
 
-    @enforce_keys [:signaling, :audio_params, :video_params, :ice_servers, :keyframe_interval]
+    @enforce_keys [
+      :signaling,
+      :audio_params,
+      :video_codecs,
+      :ice_servers,
+      :keyframe_interval
+    ]
     defstruct @enforce_keys ++
                 [
+                  video_params: nil,
                   pc: nil,
                   output_tracks: %{},
                   awaiting_outputs: [],
@@ -56,7 +64,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
      %State{
        signaling: opts.signaling,
        audio_params: ExWebRTCUtils.codec_params(:opus),
-       video_params: ExWebRTCUtils.codec_params(opts.video_codec),
+       video_codecs: Bunch.listify(opts.video_codec),
        ice_servers: opts.ice_servers,
        keyframe_interval: opts.keyframe_interval
      }}
@@ -74,14 +82,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_playing(_ctx, state) do
-    # {:ok, pc} =
-    #   PeerConnection.start(
-    #     ice_servers: state.ice_servers,
-    #     video_codecs: state.video_params,
-    #     audio_codecs: state.audio_params
-    #   )
-
-    # Process.monitor(pc)
     Process.monitor(state.signaling.pid)
     SignalingChannel.register_element(state.signaling)
 
@@ -194,6 +194,10 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
     state =
       with %{pc: nil} <- state do
+        state =
+          ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
+          |> select_video_params(state)
+
         {:ok, pc} =
           PeerConnection.start(
             ice_servers: state.ice_servers,
@@ -202,6 +206,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
           )
 
         Process.monitor(pc)
+
         %{state | pc: pc}
       end
 
@@ -332,5 +337,24 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   defp handle_close(_ctx, state) do
     {[], %{state | status: :closed}}
+  end
+
+  defp select_video_params(video_codecs_in_sdp_offer, state) do
+    selected_codec =
+      case state.video_codecs do
+        [] ->
+          []
+
+        [only_codec] ->
+          only_codec
+
+        [preferred_codec, second_codec] ->
+          if preferred_codec in video_codecs_in_sdp_offer,
+            do: preferred_codec,
+            else: second_codec
+      end
+
+    video_params = ExWebRTCUtils.codec_params(selected_codec)
+    %{state | video_params: video_params}
   end
 end
