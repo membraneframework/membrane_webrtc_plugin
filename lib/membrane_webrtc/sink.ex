@@ -33,12 +33,24 @@ defmodule Membrane.WebRTC.Sink do
   """
   @type new_tracks :: {:new_tracks, [%{id: term, kind: :audio | :video}]}
 
+  @typedoc """
+  WHIP client options
+
+  - `uri` - Address of the WHIP server (HTTP/HTTPS)
+  - `token` - WHIP token, defaults to an empty string
+  """
+  @type whip_options :: {:uri, String.t()} | {:token, String.t()}
+
   def_options signaling: [
-                spec: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
+                spec:
+                  SignalingChannel.t()
+                  | {:whip, whip_options}
+                  | {:websocket, SimpleWebSocketServer.options()},
                 description: """
                 Channel for passing WebRTC signaling messages (SDP and ICE).
                 Either:
                 - `#{inspect(SignalingChannel)}` - See its docs for details.
+                - `{:whip, options}` - Acts as a WHIP client, see `t:whip_options/0` for details.
                 - `{:websocket, options}` - Spawns #{inspect(SimpleWebSocketServer)},
                 see there for details.
                 """

@@ -8,8 +8,8 @@ defmodule Membrane.WebRTC.WhipServer do
     the signaling channel to negotiate the connection or error to reject it. The signaling
     channel can be passed to `Membrane.WebRTC.Source`.
   - `serve_static` - path to static assets that should be served along with WHIP,
-    useful to serve HTML assets. If set to `false` (default), no static assets are
-    served
+    under a `/static` endpoint. Useful to serve HTML assets. If set to `false` (default),
+    no static assets are served
   - Any of `t:Bandit.options/0` - Bandit configuration
   """
 
@@ -72,7 +72,7 @@ defmodule Membrane.WebRTC.WhipServer do
     """
     use Plug.Router
 
-    plug(Plug.Logger, log: :info)
+    plug(Plug.Logger, log: :debug)
     plug(Corsica, origins: "*")
     plug(:match)
     plug(:dispatch)

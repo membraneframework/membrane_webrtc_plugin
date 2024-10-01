@@ -366,10 +366,15 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   defp setup_whip(ctx, opts) do
     signaling = SignalingChannel.new()
     clients_cnt = :atomics.new(1, [])
+    {token, opts} = Keyword.pop(opts, :token, fn _token -> true end)
+    validate_token = if is_function(token), do: token, else: &(&1 == token)
 
-    handle_new_client = fn _token ->
-      clients_cnt = :atomics.add_get(clients_cnt, 1, 1)
-      if clients_cnt == 1, do: {:ok, signaling}, else: {:error, :already_connected}
+    handle_new_client = fn token ->
+      cond do
+        !validate_token.(token) -> {:error, :invalid_token}
+        :atomics.add_get(clients_cnt, 1, 1) > 1 -> {:error, :already_connected}
+        true -> {:ok, signaling}
+      end
     end
 
     Membrane.UtilitySupervisor.start_child(ctx.utility_supervisor, {

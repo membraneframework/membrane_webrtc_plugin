@@ -26,12 +26,32 @@ defmodule Membrane.WebRTC.Source do
   """
   @type new_tracks :: {:new_tracks, [%{id: term, kind: :audio | :video}]}
 
+  @typedoc """
+  Options for WHIP server input.
+
+  The server accepts a single connection and the stream is received by this source. The options are:
+
+  - `token` - either expected WHIP token or a function returning true if the token is valid, otherwise false
+  - `serve_static` - make WHIP server also serve static content, such as an HTML page under `/static` endpoint
+  - Any of `t:Bandit.options/0` - in particular `ip` and `port`
+
+  To handle multiple connections and have more control over the server, see `Membrane.WebRTC.WhipServer`.
+  """
+  @type whip_options ::
+          {:token, String.t() | (String.t() -> boolean())}
+          | {:serve_static, String.t()}
+          | {atom, term()}
+
   def_options signaling: [
-                spec: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
+                spec:
+                  SignalingChannel.t()
+                  | {:whip, whip_options()}
+                  | {:websocket, SimpleWebSocketServer.options()},
                 description: """
                 Channel for passing WebRTC signaling messages (SDP and ICE).
                 Either:
                 - `#{inspect(SignalingChannel)}` - See its docs for details.
+                - `{:whip, options}` - Starts a WHIP server, see `t:whip_options/0` for details.
                 - `{:websocket, options}` - Spawns #{inspect(SimpleWebSocketServer)},
                 see there for details.
                 """

@@ -23,23 +23,16 @@ defmodule Example.Pipeline do
 
   @impl true
   def handle_init(_ctx, opts) do
-    # p = self()
-
-    # Membrane.WebRTC.WhipServer.start_link(
-    #   port: 8888,
-    #   handle_new_client: fn signaling, _token ->
-    #     send(p, {:ready, signaling})
-    #     :ok
-    #   end
-    # )
-
-    # signaling = receive do: ({:ready, signaling} -> signaling)
-
     spec =
       [
         child(:webrtc, %WebRTC.Source{
-          # signaling: {:whip, port: opts[:port], ip: :any, serve_static: "examples/assets"}
-          signaling: opts[:port]
+          signaling: {
+            :whip,
+            token: "whip_it!",
+            port: opts[:port],
+            ip: :any,
+            serve_static: "#{__DIR__}/assets/browser_to_file"
+          }
         }),
         child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
@@ -67,43 +60,15 @@ defmodule Example.Pipeline do
   end
 end
 
-defmodule Router do
-  use Plug.Router
+port = 8829
+{:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: port)
+Process.monitor(supervisor)
 
-  plug(Plug.Logger)
-  plug(Plug.Static, at: "/", from: "examples/assets")
-  plug(:match)
-  plug(:dispatch)
+Logger.info("""
+Visit http://localhost:#{port}/static/index.html to start the stream. To finish the recording properly,
+don't terminate this script - instead click 'disconnect' in the website or close the browser tab.
+""")
 
-  forward(
-    "/",
-    to: Membrane.WebRTC.WhipServer.Router,
-    handle_new_client: &__MODULE__.handle_new_client/1
-  )
-
-  def handle_new_client(_token) do
-    signaling = Membrane.WebRTC.SignalingChannel.new()
-
-    {:ok, _supervisor, _pipeline} =
-      Membrane.Pipeline.start_link(Example.Pipeline, port: signaling)
-
-    {:ok, signaling}
-  end
+receive do
+  {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok
 end
-
-Bandit.start_link(plug: Router, ip: :any, port: 8829)
-
-Process.sleep(:infinity)
-
-# port = 8829
-# {:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: port)
-# Process.monitor(supervisor)
-
-# Logger.info("""
-# Visit http://localhost:#{port}/index.html to start the stream. To finish the recording properly,
-# don't terminate this script - instead click 'disconnect' in the website or close the browser tab.
-# """)
-
-# receive do
-#   {:DOWN, _ref, :process, ^supervisor, _reason} -> :ok
-# end
