@@ -170,13 +170,9 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   @impl true
-  def handle_child_notification({:new_tracks, tracks}, :webrtc, _ctx, state) do
-    {[notify_parent: {:new_tracks, tracks}], state}
-  end
-
-  @impl true
-  def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
-    {[notify_parent: {:negotiated_video_codecs, codecs}], state}
+  def handle_child_notification({type, _content} = notification, :webrtc, _ctx, state)
+      when type in [:new_tracks, :negotiated_video_codecs] do
+    {[notify_parent: notification], state}
   end
 
   @impl true

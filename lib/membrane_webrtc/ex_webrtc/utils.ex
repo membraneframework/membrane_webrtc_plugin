@@ -61,4 +61,21 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
         90_000
     end
   end
+
+  @spec get_negotiated_video_codecs(ExWebRTC.SessionDescription.t()) :: [:h264 | :vp8]
+  def get_negotiated_video_codecs(sdp_answer) do
+    ex_sdp = ExSDP.parse!(sdp_answer.sdp)
+
+    ex_sdp.media
+    |> Enum.flat_map(fn
+      %{type: :video, attributes: attributes} -> attributes
+      _media -> []
+    end)
+    |> Enum.flat_map(fn
+      %ExSDP.Attribute.RTPMapping{encoding: "H264"} -> [:h264]
+      %ExSDP.Attribute.RTPMapping{encoding: "VP8"} -> [:vp8]
+      _attribute -> []
+    end)
+    |> Enum.uniq()
+  end
 end
