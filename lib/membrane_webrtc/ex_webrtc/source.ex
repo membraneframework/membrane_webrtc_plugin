@@ -6,9 +6,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   require Membrane.Logger
 
   alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
-  alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer, WhipServer}
 
-  def_options signaling: [], video_codec: [], ice_servers: [], keyframe_interval: []
+  def_options signaling: [],
+              video_codec: [],
+              ice_servers: [],
+              keyframe_interval: [],
+              sdp_candidates_timeout: []
 
   def_output_pad :output,
     accepted_format: Membrane.RTP,
@@ -36,17 +40,26 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
             ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
-            keyframe_interval: Membrane.Time.t() | nil
+            keyframe_interval: Membrane.Time.t() | nil,
+            sdp_candidates_timeout: Membrane.Time.t() | nil
           }
 
-    @enforce_keys [:signaling, :audio_params, :video_params, :ice_servers, :keyframe_interval]
+    @enforce_keys [
+      :signaling,
+      :audio_params,
+      :video_params,
+      :ice_servers,
+      :keyframe_interval,
+      :sdp_candidates_timeout
+    ]
     defstruct @enforce_keys ++
                 [
                   pc: nil,
                   output_tracks: %{},
                   awaiting_outputs: [],
                   awaiting_candidates: [],
-                  status: :init
+                  status: :init,
+                  candidates_in_sdp: false
                 ]
   end
 
@@ -58,15 +71,23 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        ice_servers: opts.ice_servers,
-       keyframe_interval: opts.keyframe_interval
+       keyframe_interval: opts.keyframe_interval,
+       sdp_candidates_timeout: opts.sdp_candidates_timeout
      }}
   end
 
   @impl true
   def handle_setup(ctx, state) do
     signaling =
-      with {:websocket, opts} <- state.signaling do
-        SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
+      case state.signaling do
+        {:whip, opts} ->
+          setup_whip(ctx, opts)
+
+        {:websocket, opts} ->
+          SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
+
+        signaling ->
+          signaling
       end
 
     {[], %{state | signaling: signaling}}
@@ -189,7 +210,11 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
+  def handle_info(
+        {SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp, metadata},
+        _ctx,
+        state
+      ) do
     Membrane.Logger.debug("Received SDP offer")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
@@ -212,7 +237,12 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     output_tracks = Map.merge(state.output_tracks, Map.new(new_tracks))
 
     state =
-      %{state | awaiting_outputs: awaiting_outputs, output_tracks: output_tracks}
+      %{
+        state
+        | awaiting_outputs: awaiting_outputs,
+          output_tracks: output_tracks,
+          candidates_in_sdp: state.candidates_in_sdp or metadata[:candidates_in_sdp] == true
+      }
       |> maybe_answer()
 
     tracks_notification =
@@ -238,7 +268,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate, _metadata}, _ctx, state) do
     case PeerConnection.add_ice_candidate(state.pc, candidate) do
       :ok ->
         {[], state}
@@ -283,8 +313,21 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       |> Enum.reverse()
       |> Enum.each(&(:ok = PeerConnection.add_ice_candidate(pc, &1)))
 
+      answer =
+        if state.candidates_in_sdp do
+          receive do
+            {:ex_webrtc, ^pc, {:ice_gathering_state_change, :complete}} -> :ok
+          after
+            Membrane.Time.as_milliseconds(state.sdp_candidates_timeout, :round) -> :ok
+          end
+
+          PeerConnection.get_local_description(pc)
+        else
+          answer
+        end
+
       SignalingChannel.signal(state.signaling, answer)
-      %{state | awaiting_candidates: []}
+      %{state | awaiting_candidates: [], candidates_in_sdp: false}
     else
       state
     end
@@ -318,5 +361,27 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   defp handle_close(_ctx, state) do
     {[], %{state | status: :closed}}
+  end
+
+  defp setup_whip(ctx, opts) do
+    signaling = SignalingChannel.new()
+    clients_cnt = :atomics.new(1, [])
+    {token, opts} = Keyword.pop(opts, :token, fn _token -> true end)
+    validate_token = if is_function(token), do: token, else: &(&1 == token)
+
+    handle_new_client = fn token ->
+      cond do
+        !validate_token.(token) -> {:error, :invalid_token}
+        :atomics.add_get(clients_cnt, 1, 1) > 1 -> {:error, :already_connected}
+        true -> {:ok, signaling}
+      end
+    end
+
+    Membrane.UtilitySupervisor.start_child(ctx.utility_supervisor, {
+      WhipServer,
+      [handle_new_client: handle_new_client] ++ opts
+    })
+
+    signaling
   end
 end
