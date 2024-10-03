@@ -192,7 +192,11 @@ defmodule Membrane.WebRTC.IntegrationTest do
     test "send and receive a file", %{tmp_dir: tmp_dir} do
       signaling = SignalingChannel.new()
       send_pipeline = Testing.Pipeline.start_link_supervised!()
-      prepare_input(send_pipeline, webrtc: %WebRTC.Sink{signaling: signaling})
+
+      prepare_input(send_pipeline,
+        webrtc: %WebRTC.Sink{signaling: signaling, video_codec: [:vp8, :h264]}
+      )
+
       receive_pipeline = Testing.Pipeline.start_link_supervised!()
 
       prepare_output(receive_pipeline, tmp_dir, webrtc: %WebRTC.Source{signaling: signaling})

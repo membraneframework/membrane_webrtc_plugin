@@ -3,7 +3,10 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
 
   alias ExWebRTC.RTPCodecParameters
 
-  @spec codec_params(:opus | :h264 | :vp8) :: [RTPCodecParameters.t()]
+  @type codec :: :opus | :h264 | :vp8
+  @type codec_or_codecs :: codec() | [codec()]
+
+  @spec codec_params(codec_or_codecs()) :: [RTPCodecParameters.t()]
   def codec_params(:opus),
     do: [
       %RTPCodecParameters{
@@ -40,8 +43,22 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     ]
   end
 
-  @spec codec_clock_rate(:opus | :h264 | :vp8) :: pos_integer()
+  def codec_params(codecs) when is_list(codecs) do
+    codecs |> Enum.flat_map(&codec_params/1)
+  end
+
+  @spec codec_clock_rate(codec_or_codecs()) :: pos_integer()
   def codec_clock_rate(:opus), do: 48_000
   def codec_clock_rate(:vp8), do: 90_000
   def codec_clock_rate(:h264), do: 90_000
+
+  def codec_clock_rate(codecs) when is_list(codecs) do
+    cond do
+      codecs == [:opus] ->
+        48_000
+
+      codecs != [] and Enum.all?(codecs, &(&1 in [:vp8, :h264])) ->
+        90_000
+    end
+  end
 end
