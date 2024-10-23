@@ -318,7 +318,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     import Utils
 
-    test "keyframe request events" do
+    test "keyframe request events every time interval" do
       {send_pipeline, receive_pipeline} =
         run_keyframe_testing_pipelines(keyframe_interval: Membrane.Time.seconds(1))
 

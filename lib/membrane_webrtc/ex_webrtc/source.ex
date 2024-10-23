@@ -192,22 +192,30 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     Membrane.Logger.debug("Received SDP offer")
 
-    state =
+    {maybe_notify_parent, state} =
       with %{pc: nil} <- state do
-        state =
-          ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
-          |> select_video_params(state)
+        video_codecs_in_sdp = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
+
+        negotiated_video_codecs =
+          state.video_codecs
+          |> Enum.find([], &(&1 in video_codecs_in_sdp))
+          |> Bunch.listify()
+
+        video_params = ExWebRTCUtils.codec_params(negotiated_video_codecs)
 
         {:ok, pc} =
           PeerConnection.start(
             ice_servers: state.ice_servers,
-            video_codecs: state.video_params,
+            video_codecs: video_params,
             audio_codecs: state.audio_params
           )
 
         Process.monitor(pc)
 
-        %{state | pc: pc}
+        notify_parent = [notify_parent: {:negotiated_video_codecs, negotiated_video_codecs}]
+        {notify_parent, %{state | pc: pc, video_params: video_params}}
+      else
+        state -> {[], state}
       end
 
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
@@ -253,7 +261,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
           []
       end)
 
-    {tracks_notification ++ stream_formats, state}
+    {maybe_notify_parent ++ tracks_notification ++ stream_formats, state}
   end
 
   @impl true
@@ -337,24 +345,5 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   defp handle_close(_ctx, state) do
     {[], %{state | status: :closed}}
-  end
-
-  defp select_video_params(video_codecs_in_sdp_offer, state) do
-    selected_codec =
-      case state.video_codecs do
-        [] ->
-          []
-
-        [only_codec] ->
-          only_codec
-
-        [preferred_codec, second_codec] ->
-          if preferred_codec in video_codecs_in_sdp_offer,
-            do: preferred_codec,
-            else: second_codec
-      end
-
-    video_params = ExWebRTCUtils.codec_params(selected_codec)
-    %{state | video_params: video_params}
   end
 end
