@@ -36,8 +36,12 @@ defmodule Membrane.WebRTC.Source do
                 see there for details.
                 """
               ],
-              video_codec: [
+              allowed_video_codecs: [
                 spec: :vp8 | :h264 | [:vp8 | :h264],
+                default: :vp8
+              ],
+              suggested_video_codec: [
+                spec: :vp8 | :h264,
                 default: :vp8
               ],
               keyframe_interval: [
@@ -80,7 +84,13 @@ defmodule Membrane.WebRTC.Source do
         keyframe_interval: opts.keyframe_interval
       })
 
-    state = %{tracks: %{}} |> Map.merge(opts)
+    state =
+      %{tracks: %{}, negotiated_video_codecs: nil}
+      |> Map.merge(opts)
+      |> Map.update!(:allowed_video_codecs, &Bunch.listify/1)
+
+    :ok = validate_video_codecs!(state)
+
     {[spec: spec], state}
   end
 
@@ -117,6 +127,7 @@ defmodule Membrane.WebRTC.Source do
 
   @impl true
   def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
+    state = %{state | negotiated_video_codecs: codecs}
     {[notify_parent: {:negotiated_video_codecs, codecs}], state}
   end
 
@@ -127,17 +138,29 @@ defmodule Membrane.WebRTC.Source do
     })
   end
 
-  defp get_depayloader(builder, :video, %{video_codec: :vp8}) do
+  defp get_depayloader(builder, :video, %{negotiated_video_codecs: [:vp8]}) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
     })
   end
 
-  defp get_depayloader(builder, :video, %{video_codec: :h264}) do
+  defp get_depayloader(builder, :video, %{negotiated_video_codecs: [:h264]}) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
     })
+  end
+
+  defp get_depayloader(builder, :video, %{negotiated_video_codecs: []}) do
+    raise "dupa dupa dupa"
+  end
+
+  defp validate_video_codecs!(state) do
+    if state.suggested_video_codec not in state.allowed_video_codecs do
+      raise "dupa"
+    end
+
+    :ok
   end
 end

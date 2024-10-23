@@ -8,7 +8,11 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
   alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
 
-  def_options signaling: [], video_codec: [], ice_servers: [], keyframe_interval: []
+  def_options signaling: [],
+              allowed_video_codecs: [],
+              suggested_video_codec: [],
+              ice_servers: [],
+              keyframe_interval: []
 
   def_output_pad :output,
     accepted_format: Membrane.RTP,
@@ -35,7 +39,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             status: :init | :connecting | :connected | :closed,
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
-            video_codecs: [:h264 | :vp8],
+            allowed_video_codecs: [:h264 | :vp8],
+            suggested_video_codec: :h264 | :vp8,
             ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
             keyframe_interval: Membrane.Time.t() | nil
           }
@@ -43,7 +48,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     @enforce_keys [
       :signaling,
       :audio_params,
-      :video_codecs,
+      :allowed_video_codecs,
+      :suggested_video_codec,
       :ice_servers,
       :keyframe_interval
     ]
@@ -64,7 +70,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
      %State{
        signaling: opts.signaling,
        audio_params: ExWebRTCUtils.codec_params(:opus),
-       video_codecs: Bunch.listify(opts.video_codec),
+       allowed_video_codecs: opts.allowed_video_codecs |> Enum.uniq(),
+       suggested_video_codec: opts.suggested_video_codec,
        ice_servers: opts.ice_servers,
        keyframe_interval: opts.keyframe_interval
      }}
@@ -197,9 +204,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         video_codecs_in_sdp = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
 
         negotiated_video_codecs =
-          state.video_codecs
-          |> Enum.find([], &(&1 in video_codecs_in_sdp))
-          |> Bunch.listify()
+          state.allowed_video_codecs
+          |> Enum.filter(&(&1 in video_codecs_in_sdp))
+          |> case do
+            [] -> []
+            [codec] -> [codec]
+            _both -> state.suggested_video_codec
+          end
 
         video_params = ExWebRTCUtils.codec_params(negotiated_video_codecs)
 
