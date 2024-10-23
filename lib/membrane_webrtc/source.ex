@@ -115,6 +115,11 @@ defmodule Membrane.WebRTC.Source do
     {[notify_parent: {:new_tracks, tracks}], state}
   end
 
+  @impl true
+  def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
+    {[notify_parent: {:negotiated_video_codecs, codecs}], state}
+  end
+
   defp get_depayloader(builder, :audio, _state) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.Opus.Depayloader,

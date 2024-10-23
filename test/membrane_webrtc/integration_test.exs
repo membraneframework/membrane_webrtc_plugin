@@ -226,6 +226,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
     import Utils
 
     @tag :tmp_dir
+    @tag :xd
     test "dynamically add new tracks", %{tmp_dir: tmp_dir} do
       signaling = SignalingChannel.new()
 
