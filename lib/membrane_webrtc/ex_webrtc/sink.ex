@@ -243,7 +243,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     |> Enum.filter(&(&1.direction == :sendrecv))
     |> Enum.each(&PeerConnection.set_transceiver_direction(pc, &1.id, :sendonly))
 
-    {:ok, offer} = PeerConnection.create_offer(pc)
+    {:ok, offer} = PeerConnection.create_offer(pc) |> dbg(label: "SINK OFFER")
     :ok = PeerConnection.set_local_description(pc, offer)
     SignalingChannel.signal(state.signaling, offer)
     %{state | negotiating_tracks: negotiating_tracks, queued_tracks: []}

@@ -74,19 +74,15 @@ defmodule Membrane.WebRTC.Source do
 
   @impl true
   def handle_init(_ctx, opts) do
-    {signaling, opts} = opts |> Map.from_struct() |> Map.pop!(:signaling)
+    opts =  opts |> Map.from_struct()
+    ex_webrtc_element = struct(ExWebRTCSource, opts)
+    spec = child(:webrtc, ex_webrtc_element)
 
-    spec =
-      child(:webrtc, %ExWebRTCSource{
-        signaling: signaling,
-        video_codec: opts.video_codec,
-        ice_servers: opts.ice_servers,
-        keyframe_interval: opts.keyframe_interval
-      })
 
     state =
       %{tracks: %{}, negotiated_video_codecs: nil}
       |> Map.merge(opts)
+      |> Map.delete(:signaling)
       |> Map.update!(:allowed_video_codecs, &Bunch.listify/1)
 
     :ok = validate_video_codecs!(state)
