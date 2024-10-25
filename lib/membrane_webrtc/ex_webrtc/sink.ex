@@ -42,7 +42,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        video_codec: opts.video_codec,
        ice_servers: opts.ice_servers
-    } }
+     }}
   end
 
   @impl true
