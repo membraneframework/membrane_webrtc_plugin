@@ -199,8 +199,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp}, _ctx, state) do
     Membrane.Logger.debug("Received SDP offer")
 
-    # dbg(state.pc)
-
     {maybe_notify_parent, state} =
       with %{pc: nil} <- state do
         video_codecs_in_sdp = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
