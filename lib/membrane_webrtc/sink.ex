@@ -105,7 +105,7 @@ defmodule Membrane.WebRTC.Sink do
     spec =
       child(:webrtc, %ExWebRTCSink{
         signaling: opts.signaling,
-        tracks: opts.tracks,
+        tracks: opts.tracks ,
         video_codec: opts.video_codec,
         ice_servers: opts.ice_servers
       })

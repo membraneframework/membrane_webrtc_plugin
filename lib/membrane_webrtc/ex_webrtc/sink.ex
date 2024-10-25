@@ -42,7 +42,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        video_codec: opts.video_codec,
        ice_servers: opts.ice_servers
-     }}
+    } }
   end
 
   @impl true
@@ -243,7 +243,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     |> Enum.filter(&(&1.direction == :sendrecv))
     |> Enum.each(&PeerConnection.set_transceiver_direction(pc, &1.id, :sendonly))
 
-    {:ok, offer} = PeerConnection.create_offer(pc) |> dbg(label: "SINK OFFER")
+    {:ok, offer} = PeerConnection.create_offer(pc)
     :ok = PeerConnection.set_local_description(pc, offer)
     SignalingChannel.signal(state.signaling, offer)
     %{state | negotiating_tracks: negotiating_tracks, queued_tracks: []}

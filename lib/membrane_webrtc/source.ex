@@ -38,11 +38,35 @@ defmodule Membrane.WebRTC.Source do
               ],
               allowed_video_codecs: [
                 spec: :vp8 | :h264 | [:vp8 | :h264],
-                default: :vp8
+                default: :vp8,
+                description: """
+                Specyfies, which video codecs can be accepted by source during the SDP
+                negotiaion.
+
+                Either `:vp8`, `:h264` or a list containing both options.
+
+                Event if it is set to `[:h264, :vp8]`, the source will negotiate at most
+                one video codec. Negotiated codec can be deduced from
+                `{:negotiated_video_codecs, codecs}` notification sent to the parent.
+
+                If prefer to receive one video codec over another, but you are still able
+                to handle both of them, use `:suggested_video_codec` option.
+
+                By default only `:vp8`.
+                """
               ],
               suggested_video_codec: [
                 spec: :vp8 | :h264,
-                default: :vp8
+                default: :vp8,
+                description: """
+                Specyfies, which video codec will be preferred by the source, if both of
+                them will be available.
+
+                Usage of this option makes sense only if option `:allowed_video_codecs`
+                is set to `[:vp8, :h264]` or `[:h264, :vp8]`.
+
+                Defaults to `:vp8`.
+                """
               ],
               keyframe_interval: [
                 spec: Membrane.Time.t() | nil,
@@ -74,18 +98,13 @@ defmodule Membrane.WebRTC.Source do
 
   @impl true
   def handle_init(_ctx, opts) do
-    opts =  opts |> Map.from_struct()
-    ex_webrtc_element = struct(ExWebRTCSource, opts)
-    spec = child(:webrtc, ex_webrtc_element)
-
+    opts = opts |> Map.from_struct() |> Map.update!(:allowed_video_codecs, &Bunch.listify/1)
+    spec = child(:webrtc, struct(ExWebRTCSource, opts))
 
     state =
       %{tracks: %{}, negotiated_video_codecs: nil}
       |> Map.merge(opts)
       |> Map.delete(:signaling)
-      |> Map.update!(:allowed_video_codecs, &Bunch.listify/1)
-
-    :ok = validate_video_codecs!(state)
 
     {[spec: spec], state}
   end
@@ -134,29 +153,36 @@ defmodule Membrane.WebRTC.Source do
     })
   end
 
-  defp get_depayloader(builder, :video, %{negotiated_video_codecs: [:vp8]}) do
+  defp get_depayloader(builder, :video, state) do
+    cond do
+      state.allowed_video_codecs == [:vp8] ->
+        get_vp8_depayloader(builder)
+
+      state.allowed_video_codecs == [:h264] ->
+        get_h264_depayloader(builder)
+
+      state.negotiated_video_codecs == [:vp8] ->
+        get_vp8_depayloader(builder)
+
+      state.negotiated_video_codecs == [:h264] ->
+        get_h264_depayloader(builder)
+
+      state.negotiated_video_codecs == nil ->
+        raise "Cannot select depayloader before end of SDP messages exchange"
+    end
+  end
+
+  defp get_vp8_depayloader(builder) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
     })
   end
 
-  defp get_depayloader(builder, :video, %{negotiated_video_codecs: [:h264]}) do
+  defp get_h264_depayloader(builder) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
     })
-  end
-
-  defp get_depayloader(builder, :video, %{negotiated_video_codecs: []}) do
-    raise "dupa dupa dupa"
-  end
-
-  defp validate_video_codecs!(state) do
-    if state.suggested_video_codec not in state.allowed_video_codecs do
-      raise "dupa"
-    end
-
-    :ok
   end
 end
