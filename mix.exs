@@ -36,7 +36,8 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
 
   defp deps do
     [
-      {:membrane_core, "~> 1.0"},
+      # {:membrane_core, "~> 1.0"},
+      {:membrane_core, github: "membraneframework/membrane_core", branch: "additional-telemetry-events", override: true},
       {:ex_webrtc, "~> 0.4.0"},
       {:membrane_rtp_plugin, "~> 0.29.0"},
       {:membrane_rtp_h264_plugin, "~> 0.19.0"},
@@ -45,13 +46,26 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:membrane_timestamp_queue, "~> 0.2.0"},
       {:bandit, "~> 1.2"},
       {:websock_adapter, "~> 0.5.0"},
-      {:membrane_matroska_plugin, "~> 0.5.0", only: :test},
-      {:membrane_file_plugin, "~> 0.16.0", only: :test},
-      {:membrane_realtimer_plugin, "~> 0.9.0", only: :test},
-      {:membrane_opus_plugin, "~> 0.20.0", only: :test},
+      # {:membrane_matroska_plugin, "~> 0.5.0", only: :test},
+      # {:membrane_file_plugin, "~> 0.16.0", only: :test},
+      # {:membrane_realtimer_plugin, "~> 0.9.0", only: :test},
+      # {:membrane_opus_plugin, "~> 0.20.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
-      {:credo, ">= 0.0.0", only: :dev, runtime: false}
+      {:credo, ">= 0.0.0", only: :dev, runtime: false},
+      {:membrane_opentelemetry, "~> 0.1.0"},
+      {:membrane_opentelemetry_plugs, path: "../membrane_opentelemetry_plugs"},
+      #  github: "membraneframework-labs/membrane_opentelemetry_plugs",
+      #  branch: "initial-implementation"},
+       {:opentelemetry, "~> 1.4"},
+       {:opentelemetry_api, "~> 1.2", override: true},
+       {:opentelemetry_exporter, "~> 1.6"},
+       {:telemetry, "~> 1.0"},
+       {:membrane_file_plugin, "~> 0.16.0"},
+       {:membrane_realtimer_plugin, "~> 0.9.0"},
+       {:membrane_matroska_plugin, "~> 0.5.0"},
+       {:membrane_opus_plugin, "~> 0.20.0"},
+       {:membrane_h264_plugin, "~> 0.9.1"}
     ]
   end
 

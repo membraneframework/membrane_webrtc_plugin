@@ -8,13 +8,15 @@
 require Logger
 Logger.configure(level: :info)
 
-Mix.install([
-  {:membrane_webrtc_plugin, path: "#{__DIR__}/.."},
-  :membrane_file_plugin,
-  :membrane_realtimer_plugin,
-  :membrane_matroska_plugin,
-  :membrane_opus_plugin
-])
+# Mix.install([
+#   {:membrane_webrtc_plugin, path: "#{__DIR__}/.."},
+#   :membrane_file_plugin,
+#   :membrane_realtimer_plugin,
+#   :membrane_matroska_plugin,
+#   :membrane_opus_plugin
+# ])
+
+
 
 defmodule Example.Pipeline do
   use Membrane.Pipeline
@@ -79,9 +81,10 @@ end
 
 {:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
 Process.monitor(supervisor)
-:ok = :inets.start()
+# :ok =
+  :inets.start()
 
-{:ok, _server} =
+# {:ok, _server} =
   :inets.start(:httpd,
     bind_address: ~c"localhost",
     port: 8000,
