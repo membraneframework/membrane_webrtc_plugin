@@ -72,6 +72,8 @@ defmodule Membrane.WebRTC.Source do
   def handle_init(_ctx, opts) do
     {signaling, opts} = opts |> Map.from_struct() |> Map.pop!(:signaling)
 
+    :ok = Membrane.WebRTC.Utils.validate_signaling!(signaling)
+
     spec =
       child(:webrtc, %ExWebRTCSource{
         signaling: signaling,
