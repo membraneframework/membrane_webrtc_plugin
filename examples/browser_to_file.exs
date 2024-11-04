@@ -26,7 +26,13 @@ defmodule Example.Pipeline do
     spec =
       [
         child(:webrtc, %WebRTC.Source{
-          signaling: {:websocket, port: opts[:port]}
+          signaling: {
+            :whip,
+            token: "whip_it!",
+            port: opts[:port],
+            ip: :any,
+            serve_static: "#{__DIR__}/assets/browser_to_file"
+          }
         }),
         child(:matroska, Membrane.Matroska.Muxer),
         get_child(:webrtc)
@@ -54,22 +60,12 @@ defmodule Example.Pipeline do
   end
 end
 
-{:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: 8829)
+port = 8829
+{:ok, supervisor, _pipeline} = Membrane.Pipeline.start_link(Example.Pipeline, port: port)
 Process.monitor(supervisor)
 
-:ok = :inets.start()
-
-{:ok, _server} =
-  :inets.start(:httpd,
-    bind_address: ~c"localhost",
-    port: 8000,
-    document_root: ~c"#{__DIR__}/assets/browser_to_file",
-    server_name: ~c"webrtc",
-    server_root: "/tmp"
-  )
-
 Logger.info("""
-Visit http://localhost:8000/index.html to start the stream. To finish the recording properly,
+Visit http://localhost:#{port}/static/index.html to start the stream. To finish the recording properly,
 don't terminate this script - instead click 'disconnect' in the website or close the browser tab.
 """)
 

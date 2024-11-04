@@ -26,7 +26,7 @@ defmodule Membrane.WebRTC.SignalingChannel do
   @typedoc """
   Messages sent by the signaling channel to the peer.
   """
-  @type message :: {__MODULE__, pid(), message_content}
+  @type message :: {__MODULE__, pid(), message_content, metadata :: map}
 
   @typedoc """
   Messages that the peer sends with `signal/2` and receives in `t:message/0`.
@@ -81,15 +81,16 @@ defmodule Membrane.WebRTC.SignalingChannel do
       |> Map.new()
       |> Map.put(:is_element, false)
 
-    send(pid, {:register_peer, opts})
-    :ok
+    GenServer.call(pid, {:register_peer, opts})
   end
 
   @doc false
   @spec register_element(t) :: :ok
   def register_element(%__MODULE__{pid: pid}) do
-    send(pid, {:register_peer, %{pid: self(), message_format: :ex_webrtc, is_element: true}})
-    :ok
+    GenServer.call(
+      pid,
+      {:register_peer, %{pid: self(), message_format: :ex_webrtc, is_element: true}}
+    )
   end
 
   @doc """
@@ -98,9 +99,9 @@ defmodule Membrane.WebRTC.SignalingChannel do
   The calling process must be previously registered with `register_peer/2`.
   See the moduledoc for details.
   """
-  @spec signal(t, message_content) :: :ok
-  def signal(%__MODULE__{pid: pid}, message) do
-    send(pid, {:signal, self(), message})
+  @spec signal(t, message_content, metadata :: map) :: :ok
+  def signal(%__MODULE__{pid: pid}, message, metadata \\ %{}) do
+    send(pid, {:signal, self(), message, metadata})
     :ok
   end
 
@@ -114,7 +115,6 @@ defmodule Membrane.WebRTC.SignalingChannel do
     state = %{
       peer_a: nil,
       peer_b: nil,
-      element_pid: nil,
       message_queue: []
     }
 
@@ -122,21 +122,23 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   @impl true
-  def handle_info({:register_peer, peer}, state) do
+  def handle_call({:register_peer, peer}, _from, state) do
     Process.monitor(peer.pid)
 
     case state do
       %{peer_a: nil} ->
-        {:noreply, %{state | peer_a: peer}}
+        {:reply, :ok, %{state | peer_a: peer}}
 
       %{peer_b: nil, message_queue: queue} ->
         state = %{state | peer_b: peer}
 
         queue
         |> Enum.reverse()
-        |> Enum.each(&send_peer(state.peer_a, state.peer_b, &1))
+        |> Enum.each(fn {message, metadata} ->
+          send_peer(state.peer_a, state.peer_b, message, metadata)
+        end)
 
-        {:noreply, %{state | message_queue: []}}
+        {:reply, :ok, %{state | message_queue: []}}
 
       state ->
         raise """
@@ -147,14 +149,14 @@ defmodule Membrane.WebRTC.SignalingChannel do
   end
 
   @impl true
-  def handle_info({:signal, _from_pid, message}, %{peer_b: nil} = state) do
-    {:noreply, %{state | message_queue: [message | state.message_queue]}}
+  def handle_info({:signal, _from_pid, message, metadata}, %{peer_b: nil} = state) do
+    {:noreply, %{state | message_queue: [{message, metadata} | state.message_queue]}}
   end
 
   @impl true
-  def handle_info({:signal, from_pid, message}, state) do
+  def handle_info({:signal, from_pid, message, metadata}, state) do
     {from_peer, to_peer} = get_peers(from_pid, state)
-    send_peer(from_peer, to_peer, message)
+    send_peer(from_peer, to_peer, message, metadata)
     {:noreply, state}
   end
 
@@ -172,11 +174,21 @@ defmodule Membrane.WebRTC.SignalingChannel do
     end
   end
 
-  defp send_peer(%{message_format: format}, %{message_format: format, pid: pid}, message) do
-    send(pid, {__MODULE__, self(), message})
+  defp send_peer(
+         %{message_format: format},
+         %{message_format: format, pid: pid},
+         message,
+         metadata
+       ) do
+    send(pid, {__MODULE__, self(), message, metadata})
   end
 
-  defp send_peer(%{message_format: :ex_webrtc}, %{message_format: :json_data, pid: pid}, message) do
+  defp send_peer(
+         %{message_format: :ex_webrtc},
+         %{message_format: :json_data, pid: pid},
+         message,
+         metadata
+       ) do
     json_data =
       case message do
         %ICECandidate{} ->
@@ -186,13 +198,14 @@ defmodule Membrane.WebRTC.SignalingChannel do
           %{"type" => "sdp_#{type}", "data" => SessionDescription.to_json(message)}
       end
 
-    send(pid, {__MODULE__, self(), json_data})
+    send(pid, {__MODULE__, self(), json_data, metadata})
   end
 
   defp send_peer(
          %{message_format: :json_data},
          %{message_format: :ex_webrtc, pid: pid},
-         message
+         message,
+         metadata
        ) do
     message =
       case message do
@@ -201,6 +214,6 @@ defmodule Membrane.WebRTC.SignalingChannel do
         %{"type" => "sdp_answer", "data" => answer} -> SessionDescription.from_json(answer)
       end
 
-    send(pid, {__MODULE__, self(), message})
+    send(pid, {__MODULE__, self(), message, metadata})
   end
 end
