@@ -44,7 +44,7 @@ defmodule Membrane.WebRTC.Sink do
   - `uri` - Address of the WHIP server (HTTP/HTTPS)
   - `token` - WHIP token, defaults to an empty string
   """
-  @type whip_options :: {:uri, String.t()} | {:token, String.t()}
+  @type whip_options :: [{:uri, String.t()} | {:token, String.t()}]
 
   def_options signaling: [
                 spec:

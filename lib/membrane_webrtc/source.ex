@@ -37,10 +37,11 @@ defmodule Membrane.WebRTC.Source do
 
   To handle multiple connections and have more control over the server, see `Membrane.WebRTC.WhipServer`.
   """
-  @type whip_options ::
+  @type whip_options :: [
           {:token, String.t() | (String.t() -> boolean())}
           | {:serve_static, String.t()}
           | {atom, term()}
+        ]
 
   def_options signaling: [
                 spec:
