@@ -27,6 +27,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
 
   def application do
     [
+      mod: {Membrane.WebRTC.App, []},
       extra_applications: []
     ]
   end
@@ -38,6 +39,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
     [
       {:membrane_core, "~> 1.1"},
       {:ex_webrtc, "~> 0.4.0"},
+      {:corsica, "~> 2.0"},
       {:membrane_rtp_plugin, "~> 0.29.0"},
       {:membrane_rtp_h264_plugin, "~> 0.19.0"},
       {:membrane_rtp_vp8_plugin, "~> 0.9.1"},
@@ -45,6 +47,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:membrane_timestamp_queue, "~> 0.2.0"},
       {:bandit, "~> 1.2"},
       {:websock_adapter, "~> 0.5.0"},
+      {:req, "~> 0.5"},
       {:membrane_matroska_plugin, "~> 0.5.0", only: :test},
       {:membrane_file_plugin, "~> 0.16.0", only: :test},
       {:membrane_realtimer_plugin, "~> 0.9.0", only: :test},

@@ -48,8 +48,22 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   @impl true
   def handle_setup(ctx, state) do
     signaling =
-      with {:websocket, opts} <- state.signaling do
-        SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
+      case state.signaling do
+        {:websocket, opts} ->
+          SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
+
+        {:whip, opts} ->
+          signaling = SignalingChannel.new()
+
+          Membrane.UtilitySupervisor.start_link_child(
+            ctx.utility_supervisor,
+            {Membrane.WebRTC.WhipClient, [signaling: signaling] ++ opts}
+          )
+
+          signaling
+
+        signaling ->
+          signaling
       end
 
     {:ok, pc} =
@@ -177,12 +191,20 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({SignalingChannel, _pid, %SessionDescription{type: :offer}}, _ctx, _state) do
+  def handle_info(
+        {SignalingChannel, _pid, %SessionDescription{type: :offer}, _metadata},
+        _ctx,
+        _state
+      ) do
     raise "WebRTC sink received SDP offer, while it sends offer and expects an answer"
   end
 
   @impl true
-  def handle_info({SignalingChannel, _pid, %SessionDescription{type: :answer} = sdp}, _ctx, state) do
+  def handle_info(
+        {SignalingChannel, _pid, %SessionDescription{type: :answer} = sdp, _metadata},
+        _ctx,
+        state
+      ) do
     Membrane.Logger.debug("Received SDP answer")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
@@ -208,7 +230,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate}, _ctx, state) do
+  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate, _metadata}, _ctx, state) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end

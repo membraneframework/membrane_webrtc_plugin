@@ -26,7 +26,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   @doc false
   @spec child_spec({options, SignalingChannel.t()}) :: Supervisor.child_spec()
   def child_spec({opts, signaling}) do
-    opts = opts |> Keyword.validate!([:port, ip: {127, 0, 0, 1}]) |> Map.new()
+    opts = opts |> validate_options!() |> Map.new()
 
     Supervisor.child_spec(
       {Bandit,
@@ -36,6 +36,9 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
       []
     )
   end
+
+  @spec validate_options!(options()) :: options() | no_return()
+  def validate_options!(options), do: Keyword.validate!(options, [:port, ip: {127, 0, 0, 1}])
 
   @doc false
   @spec start_link_supervised(pid, options) :: SignalingChannel.t()
