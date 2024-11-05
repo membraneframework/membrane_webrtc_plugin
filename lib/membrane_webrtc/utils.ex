@@ -3,7 +3,11 @@ defmodule Membrane.WebRTC.Utils do
 
   alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer}
 
-  @spec validate_signaling!(SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()} | {:whip, [{atom(), term()}]}) ::
+  @spec validate_signaling!(
+          SignalingChannel.t()
+          | {:websocket, SimpleWebSocketServer.options()}
+          | {:whip, [{atom(), term()}]}
+        ) ::
           :ok | no_return()
   def validate_signaling!(%SignalingChannel{}), do: :ok
 
