@@ -61,7 +61,7 @@ defmodule Membrane.WebRTC.Source do
                 spec: :vp8 | :h264 | [:vp8 | :h264],
                 default: :vp8,
                 description: """
-                Specyfies, which video codecs can be accepted by source during the SDP
+                Specifies, which video codecs can be accepted by the source during the SDP
                 negotiaion.
 
                 Either `:vp8`, `:h264` or a list containing both options.
@@ -71,20 +71,20 @@ defmodule Membrane.WebRTC.Source do
                 `{:negotiated_video_codecs, codecs}` notification sent to the parent.
 
                 If prefer to receive one video codec over another, but you are still able
-                to handle both of them, use `:suggested_video_codec` option.
+                to handle both of them, use `:preferred_video_codec` option.
 
                 By default only `:vp8`.
                 """
               ],
-              suggested_video_codec: [
+              preferred_video_codec: [
                 spec: :vp8 | :h264,
                 default: :vp8,
                 description: """
                 Specyfies, which video codec will be preferred by the source, if both of
                 them will be available.
 
-                Usage of this option makes sense only if option `:allowed_video_codecs`
-                is set to `[:vp8, :h264]` or `[:h264, :vp8]`.
+                Usage of this option makes sense only if there are at least 2 codecs
+                specified in the `:allowed_video_codecs` option.
 
                 Defaults to `:vp8`.
                 """
