@@ -11,14 +11,6 @@ defmodule Membrane.WebRTC.IntegrationTest do
   alias Membrane.WebRTC
   alias Membrane.WebRTC.SignalingChannel
 
-  # defmodule Utils do
-  #   import Membrane.Testing.Assertions
-
-  #   def assert_tracks_negotiated(pipeline, tracks, timeout \\ 2000) do
-  #     assert_pipeline_notified
-  #   end
-  # end
-
   defmodule KeyframeTestSource do
     use Membrane.Source
 
@@ -239,7 +231,6 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     import Utils
 
-    @tag :xd
     @tag :tmp_dir
     test "dynamically add new tracks", %{tmp_dir: tmp_dir} do
       signaling = SignalingChannel.new()
