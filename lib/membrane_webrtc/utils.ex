@@ -3,7 +3,11 @@ defmodule Membrane.WebRTC.Utils do
 
   alias Membrane.WebRTC.{SignalingChannel, SimpleWebSocketServer}
 
-  @spec validate_signaling!(SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()}) ::
+  @spec validate_signaling!(
+          SignalingChannel.t()
+          | {:websocket, SimpleWebSocketServer.options()}
+          | {:whip, [{atom(), term()}]}
+        ) ::
           :ok | no_return()
   def validate_signaling!(%SignalingChannel{}), do: :ok
 
@@ -24,8 +28,8 @@ defmodule Membrane.WebRTC.Utils do
 
   def validate_signaling!(signaling), do: do_raise(signaling)
 
+  @spec do_raise(term()) :: no_return()
   defp do_raise(signaling) do
-    raise "BCD"
     raise "Invalid signaling: #{inspect(signaling, pretty: true)}"
   end
 end
