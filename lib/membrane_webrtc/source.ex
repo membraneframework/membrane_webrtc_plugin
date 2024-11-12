@@ -130,7 +130,7 @@ defmodule Membrane.WebRTC.Source do
     :ok = Membrane.WebRTC.Utils.validate_signaling!(opts.signaling)
 
     state =
-      %{tracks: %{}, negotiated_video_codecs: nil}
+      %{tracks: %{}, negotiated_video_codecs: nil, awaiting_pads: MapSet.new()}
       |> Map.merge(opts)
 
     {[spec: spec], state}
@@ -154,8 +154,30 @@ defmodule Membrane.WebRTC.Source do
     spec =
       get_child(:webrtc)
       |> via_out(pad_ref, options: [kind: kind])
-      |> then(if state.depayload_rtp, do: &get_depayloader(&1, kind, state), else: & &1)
-      |> bin_output(pad_ref)
+
+    spec =
+      cond do
+        not state.depayload_rtp ->
+          spec |> bin_output(pad_ref)
+
+        kind == :audio ->
+          spec |> get_depayloader(:audio, state) |> bin_output(pad_ref)
+
+        kind == :video and state.negotiated_video_codecs == nil ->
+          [
+            spec |> child({:forwarding_filter_a, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter),
+            child({:forwarding_filter_b, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter)
+            |> bin_output(pad_ref)
+          ]
+
+        kind == :video ->
+          spec |> get_depayloader(:video, state) |> bin_output(pad_ref)
+      end
+
+    state =
+      if kind == :video and state.negotiated_video_codecs == nil,
+        do: state |> Map.update!(:awaiting_pads, &MapSet.put(&1, pad_ref)),
+        else: state
 
     {[spec: spec], state}
   end
@@ -170,7 +192,24 @@ defmodule Membrane.WebRTC.Source do
   @impl true
   def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
     state = %{state | negotiated_video_codecs: codecs}
-    {[notify_parent: {:negotiated_video_codecs, codecs}], state}
+
+    spec =
+      state.awaiting_pads
+      |> Enum.map(fn pad_ref ->
+        get_child({:forwarding_filter_a, pad_ref})
+        |> get_depayloader(:video, state)
+        |> get_child({:forwarding_filter_b, pad_ref})
+      end)
+
+    state = %{state | awaiting_pads: MapSet.new()}
+
+    {[notify_parent: {:negotiated_video_codecs, codecs}, spec: spec], state}
+  end
+
+  @impl true
+  def handle_child_notification(_notification, {ff, _ref}, _ctx, state)
+      when ff in [:forwarding_filter_a, :forwarding_filter_b] do
+    {[], state}
   end
 
   defp get_depayloader(builder, :audio, _state) do

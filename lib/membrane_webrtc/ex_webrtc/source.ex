@@ -117,6 +117,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_pad_added(Pad.ref(:output, pad_id) = pad, _ctx, state) do
+    IO.inspect("HANDLE PAD ADDE EXWEBRTC SOURCE")
+
     state =
       state
       |> Bunch.Struct.update_in([:output_tracks, pad_id], fn output_track ->
@@ -215,6 +217,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         state
       ) do
     Membrane.Logger.debug("Received SDP offer")
+    IO.inspect("SOURCE RECEIVED OFFER")
 
     {codecs_notification, state} = ensure_peer_connection_started(sdp, state)
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
@@ -335,6 +338,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   defp maybe_answer(state) do
     if Enum.all?(state.output_tracks, fn {_id, %{status: status}} -> status == :connected end) do
+      IO.inspect("MAYBE ANSWER YES")
+
       %{pc: pc} = state
       {:ok, answer} = PeerConnection.create_answer(pc)
       :ok = PeerConnection.set_local_description(pc, answer)
@@ -359,6 +364,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       SignalingChannel.signal(state.signaling, answer)
       %{state | awaiting_candidates: [], candidates_in_sdp: false}
     else
+      IO.inspect(state, label: "MAYBE ANSWER NO")
+
       state
     end
   end
