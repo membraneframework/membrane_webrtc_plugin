@@ -17,7 +17,7 @@ defmodule Membrane.WebRTC.Source do
   """
   use Membrane.Bin
 
-  alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
   Notification sent when new tracks arrive.
@@ -168,8 +168,8 @@ defmodule Membrane.WebRTC.Source do
         kind == :video and state.negotiated_video_codecs == nil ->
           [
             spec
-            |> child({:forwarding_filter_a, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter),
-            child({:forwarding_filter_b, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter)
+            |> child({:first_ff, pad_ref}, ForwardingFilter),
+            child({:second_ff, pad_ref}, ForwardingFilter)
             |> bin_output(pad_ref)
           ]
 
@@ -199,9 +199,9 @@ defmodule Membrane.WebRTC.Source do
     spec =
       state.awaiting_pads
       |> Enum.map(fn pad_ref ->
-        get_child({:forwarding_filter_a, pad_ref})
+        get_child({:first_ff, pad_ref})
         |> get_depayloader(:video, state)
-        |> get_child({:forwarding_filter_b, pad_ref})
+        |> get_child({:second_ff, pad_ref})
       end)
 
     state = %{state | awaiting_pads: MapSet.new()}
@@ -211,7 +211,7 @@ defmodule Membrane.WebRTC.Source do
 
   @impl true
   def handle_child_notification(_notification, {ff, _ref}, _ctx, state)
-      when ff in [:forwarding_filter_a, :forwarding_filter_b] do
+      when ff in [:first_ff, :second_ff] do
     {[], state}
   end
 

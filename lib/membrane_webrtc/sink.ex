@@ -17,12 +17,10 @@ defmodule Membrane.WebRTC.Sink do
   """
   use Membrane.Bin
 
-  alias __MODULE__.ForwardingFilter
-
   alias Membrane.H264
   alias Membrane.RemoteStream
   alias Membrane.VP8
-  alias Membrane.WebRTC.{ExWebRTCSink, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCSink, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
   Notification that should be sent to the bin to negotiate new tracks.
