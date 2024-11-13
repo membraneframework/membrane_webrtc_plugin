@@ -149,8 +149,10 @@ defmodule Membrane.WebRTC.Source do
       raise "Unknown track id #{inspect(pad_id)}, cannot link pad #{inspect(pad_ref)}"
     end
 
-    kind = kind || track.kind
+    link_webrtc(pad_ref, kind || track.kind, state)
+  end
 
+  defp link_webrtc(pad_ref, kind, state) do
     spec =
       get_child(:webrtc)
       |> via_out(pad_ref, options: [kind: kind])
@@ -165,7 +167,8 @@ defmodule Membrane.WebRTC.Source do
 
         kind == :video and state.negotiated_video_codecs == nil ->
           [
-            spec |> child({:forwarding_filter_a, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter),
+            spec
+            |> child({:forwarding_filter_a, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter),
             child({:forwarding_filter_b, pad_ref}, Membrane.WebRTC.Sink.ForwardingFilter)
             |> bin_output(pad_ref)
           ]
