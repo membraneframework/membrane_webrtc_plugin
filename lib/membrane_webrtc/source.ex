@@ -16,8 +16,15 @@ defmodule Membrane.WebRTC.Source do
   should be linked - the id of each pad should match one of the track ids.
   """
   use Membrane.Bin
+  require Membrane.Logger
 
-  alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{
+    ExWebRTCSource,
+    ExWebRTCUtils,
+    ForwardingFilter,
+    SignalingChannel,
+    SimpleWebSocketServer
+  }
 
   @typedoc """
   Notification sent when new tracks arrive.
@@ -157,30 +164,29 @@ defmodule Membrane.WebRTC.Source do
       get_child(:webrtc)
       |> via_out(pad_ref, options: [kind: kind])
 
-    spec =
+    {spec, state} =
       cond do
         not state.depayload_rtp ->
-          spec |> bin_output(pad_ref)
+          {spec |> bin_output(pad_ref), state}
 
         kind == :audio ->
-          spec |> get_depayloader(:audio, state) |> bin_output(pad_ref)
+          {spec |> get_depayloader(:audio, state) |> bin_output(pad_ref), state}
 
         kind == :video and state.negotiated_video_codecs == nil ->
-          [
-            spec
-            |> child({:first_ff, pad_ref}, ForwardingFilter),
-            child({:second_ff, pad_ref}, ForwardingFilter)
-            |> bin_output(pad_ref)
-          ]
+          spec =
+            [
+              spec
+              |> child({:first_ff, pad_ref}, ForwardingFilter),
+              child({:second_ff, pad_ref}, ForwardingFilter)
+              |> bin_output(pad_ref)
+            ]
+
+          state = state |> Map.update!(:awaiting_pads, &MapSet.put(&1, pad_ref))
+          {spec, state}
 
         kind == :video ->
-          spec |> get_depayloader(:video, state) |> bin_output(pad_ref)
+          {spec |> get_depayloader(:video, state) |> bin_output(pad_ref), state}
       end
-
-    state =
-      if kind == :video and state.negotiated_video_codecs == nil,
-        do: state |> Map.update!(:awaiting_pads, &MapSet.put(&1, pad_ref)),
-        else: state
 
     {[spec: spec], state}
   end
@@ -210,8 +216,11 @@ defmodule Membrane.WebRTC.Source do
   end
 
   @impl true
-  def handle_child_notification(_notification, {ff, _ref}, _ctx, state)
-      when ff in [:first_ff, :second_ff] do
+  def handle_child_notification(notification, child, _ctx, state) do
+    Membrane.Logger.debug(
+      "Received notification from child #{inspect(child)}: #{inspect(notification)}"
+    )
+
     {[], state}
   end
 
