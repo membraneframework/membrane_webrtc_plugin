@@ -9,7 +9,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer, WhipServer}
 
   def_options signaling: [],
-              video_codec: [],
+              allowed_video_codecs: [],
+              preferred_video_codec: [],
               ice_servers: [],
               keyframe_interval: [],
               sdp_candidates_timeout: []
@@ -39,6 +40,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             status: :init | :connecting | :connected | :closed,
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
+            allowed_video_codecs: [:h264 | :vp8],
+            preferred_video_codec: :h264 | :vp8,
             ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
             keyframe_interval: Membrane.Time.t() | nil,
             sdp_candidates_timeout: Membrane.Time.t() | nil
@@ -47,13 +50,16 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     @enforce_keys [
       :signaling,
       :audio_params,
-      :video_params,
+      :allowed_video_codecs,
+      :preferred_video_codec,
       :ice_servers,
       :keyframe_interval,
       :sdp_candidates_timeout
     ]
+
     defstruct @enforce_keys ++
                 [
+                  video_params: nil,
                   pc: nil,
                   output_tracks: %{},
                   awaiting_outputs: [],
@@ -69,7 +75,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
      %State{
        signaling: opts.signaling,
        audio_params: ExWebRTCUtils.codec_params(:opus),
-       video_params: ExWebRTCUtils.codec_params(opts.video_codec),
+       allowed_video_codecs: opts.allowed_video_codecs |> Enum.uniq(),
+       preferred_video_codec: opts.preferred_video_codec,
        ice_servers: opts.ice_servers,
        keyframe_interval: opts.keyframe_interval,
        sdp_candidates_timeout: opts.sdp_candidates_timeout
@@ -95,18 +102,10 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_playing(_ctx, state) do
-    {:ok, pc} =
-      PeerConnection.start(
-        ice_servers: state.ice_servers,
-        video_codecs: state.video_params,
-        audio_codecs: state.audio_params
-      )
-
-    Process.monitor(pc)
     Process.monitor(state.signaling.pid)
     SignalingChannel.register_element(state.signaling)
 
-    {[], %{state | pc: pc, status: :connecting}}
+    {[], %{state | status: :connecting}}
   end
 
   @impl true
@@ -216,6 +215,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         state
       ) do
     Membrane.Logger.debug("Received SDP offer")
+
+    {codecs_notification, state} = ensure_peer_connection_started(sdp, state)
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
     {new_tracks, awaiting_outputs} =
@@ -264,7 +265,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
           []
       end)
 
-    {tracks_notification ++ stream_formats, state}
+    {codecs_notification ++ tracks_notification ++ stream_formats, state}
   end
 
   @impl true
@@ -302,6 +303,35 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     :ok = PeerConnection.send_pli(state.pc, track_id)
     {[], state}
   end
+
+  defp ensure_peer_connection_started(sdp, %{pc: nil} = state) do
+    video_codecs_in_sdp = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
+
+    negotiated_video_codecs =
+      state.allowed_video_codecs
+      |> Enum.filter(&(&1 in video_codecs_in_sdp))
+      |> case do
+        [] -> []
+        [codec] -> [codec]
+        _both -> [state.preferred_video_codec]
+      end
+
+    video_params = ExWebRTCUtils.codec_params(negotiated_video_codecs)
+
+    {:ok, pc} =
+      PeerConnection.start(
+        ice_servers: state.ice_servers,
+        video_codecs: video_params,
+        audio_codecs: state.audio_params
+      )
+
+    Process.monitor(pc)
+
+    notify_parent = [notify_parent: {:negotiated_video_codecs, negotiated_video_codecs}]
+    {notify_parent, %{state | pc: pc, video_params: video_params}}
+  end
+
+  defp ensure_peer_connection_started(_sdp, state), do: {[], state}
 
   defp maybe_answer(state) do
     if Enum.all?(state.output_tracks, fn {_id, %{status: status}} -> status == :connected end) do

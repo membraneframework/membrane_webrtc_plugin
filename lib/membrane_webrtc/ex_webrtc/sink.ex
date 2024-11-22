@@ -210,19 +210,15 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     %{negotiating_tracks: negotiating_tracks, negotiated_tracks: negotiated_tracks} = state
 
-    video_codecs = get_negotiated_video_codecs(sdp)
+    video_codecs = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
 
     to_notify =
-      negotiating_tracks
-      |> Enum.filter(& &1.notify)
-      |> Enum.map(&Map.take(&1, [:id, :kind]))
-      |> Enum.map(fn
-        %{kind: :audio} = track -> Map.put(track, :codec, :opus)
-        %{kind: :video} = track -> Map.put(track, :codec, video_codecs)
-      end)
+      negotiating_tracks |> Enum.filter(& &1.notify) |> Enum.map(&Map.take(&1, [:id, :kind]))
 
-    actions =
+    new_tracks_notification =
       if to_notify == [], do: [], else: [notify_parent: {:new_tracks, to_notify}]
+
+    actions = [notify_parent: {:negotiated_video_codecs, video_codecs}] ++ new_tracks_notification
 
     negotiated_tracks = negotiated_tracks ++ negotiating_tracks
 
@@ -295,21 +291,5 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     PeerConnection.send_rtp(state.pc, id, packet)
     seq_num = rem(params.seq_num + 1, @max_rtp_seq_num + 1)
     put_in(state.input_tracks[pad], {id, %{params | seq_num: seq_num}})
-  end
-
-  defp get_negotiated_video_codecs(sdp_answer) do
-    ex_sdp = ExSDP.parse!(sdp_answer.sdp)
-
-    ex_sdp.media
-    |> Enum.flat_map(fn
-      %{type: :video, attributes: attributes} -> attributes
-      _media -> []
-    end)
-    |> Enum.flat_map(fn
-      %ExSDP.Attribute.RTPMapping{encoding: "H264"} -> [:h264]
-      %ExSDP.Attribute.RTPMapping{encoding: "VP8"} -> [:vp8]
-      _attribute -> []
-    end)
-    |> Enum.uniq()
   end
 end

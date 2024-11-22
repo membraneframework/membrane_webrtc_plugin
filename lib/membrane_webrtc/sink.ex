@@ -17,12 +17,10 @@ defmodule Membrane.WebRTC.Sink do
   """
   use Membrane.Bin
 
-  alias __MODULE__.ForwardingFilter
-
   alias Membrane.H264
   alias Membrane.RemoteStream
   alias Membrane.VP8
-  alias Membrane.WebRTC.{ExWebRTCSink, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCSink, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
 
   @typedoc """
   Notification that should be sent to the bin to negotiate new tracks.
@@ -184,13 +182,9 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   @impl true
-  def handle_child_notification({:new_tracks, tracks}, :webrtc, _ctx, state) do
-    {[notify_parent: {:new_tracks, tracks}], state}
-  end
-
-  @impl true
-  def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
-    {[notify_parent: {:negotiated_video_codecs, codecs}], state}
+  def handle_child_notification({type, _content} = notification, :webrtc, _ctx, state)
+      when type in [:new_tracks, :negotiated_video_codecs] do
+    {[notify_parent: notification], state}
   end
 
   @impl true

@@ -186,6 +186,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
   defmodule SendRecv do
     use ExUnit.Case, async: true
 
+    import Membrane.Testing.Assertions
     import Utils
 
     @tag :tmp_dir
@@ -200,6 +201,11 @@ defmodule Membrane.WebRTC.IntegrationTest do
       receive_pipeline = Testing.Pipeline.start_link_supervised!()
 
       prepare_output(receive_pipeline, tmp_dir, webrtc: %WebRTC.Source{signaling: signaling})
+
+      [send_pipeline, receive_pipeline]
+      |> Enum.each(fn pipeline ->
+        assert_pipeline_notified(pipeline, :webrtc, {:negotiated_video_codecs, [:vp8]})
+      end)
 
       assert_pipeline_notified(
         send_pipeline,
@@ -225,6 +231,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     import Utils
 
+    @tag :dupa
     @tag :tmp_dir
     test "dynamically add new tracks", %{tmp_dir: tmp_dir} do
       signaling = SignalingChannel.new()
@@ -247,6 +254,11 @@ defmodule Membrane.WebRTC.IntegrationTest do
       Testing.Pipeline.notify_child(send_pipeline, :webrtc, {:add_tracks, [:audio, :video]})
 
       assert_pipeline_notified(receive_pipeline, :webrtc, {:new_tracks, tracks})
+
+      [send_pipeline, receive_pipeline]
+      |> Enum.each(fn pipeline ->
+        assert_pipeline_notified(pipeline, :webrtc, {:negotiated_video_codecs, [:vp8]})
+      end)
 
       assert [%{kind: :audio, id: audio_id}, %{kind: :video, id: video_id}] =
                Enum.sort_by(tracks, & &1.kind)
@@ -308,6 +320,11 @@ defmodule Membrane.WebRTC.IntegrationTest do
       refute_pipeline_notified(send_pipeline, :vid2, :keyframe_requested)
       refute_pipeline_notified(send_pipeline, :audio, :keyframe_requested)
 
+      [send_pipeline, receive_pipeline]
+      |> Enum.each(fn pipeline ->
+        assert_pipeline_notified(pipeline, :webrtc, {:negotiated_video_codecs, [:vp8]})
+      end)
+
       Testing.Pipeline.terminate(send_pipeline)
       Testing.Pipeline.terminate(receive_pipeline)
     end
@@ -318,7 +335,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     import Utils
 
-    test "keyframe request events" do
+    test "keyframe request events every time interval" do
       {send_pipeline, receive_pipeline} =
         run_keyframe_testing_pipelines(keyframe_interval: Membrane.Time.seconds(1))
 
@@ -331,14 +348,17 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
       refute_pipeline_notified(send_pipeline, :audio, :keyframe_requested)
 
+      [send_pipeline, receive_pipeline]
+      |> Enum.each(fn pipeline ->
+        assert_pipeline_notified(pipeline, :webrtc, {:negotiated_video_codecs, [:vp8]})
+      end)
+
       Testing.Pipeline.terminate(send_pipeline)
       Testing.Pipeline.terminate(receive_pipeline)
     end
   end
 
   defmodule WHIP do
-    use ExUnit.Case, async: true
-
     use ExUnit.Case, async: true
 
     import Utils
@@ -358,6 +378,11 @@ defmodule Membrane.WebRTC.IntegrationTest do
         webrtc: %WebRTC.Source{signaling: {:whip, ip: {127, 0, 0, 1}, port: 6789}}
       )
 
+      [send_pipeline, receive_pipeline]
+      |> Enum.each(fn pipeline ->
+        assert_pipeline_notified(pipeline, :webrtc, {:negotiated_video_codecs, [:vp8]})
+      end)
+
       assert_pipeline_notified(
         send_pipeline,
         :webrtc,
@@ -374,6 +399,110 @@ defmodule Membrane.WebRTC.IntegrationTest do
       Testing.Pipeline.terminate(receive_pipeline)
       assert File.read!("#{tmp_dir}/out_audio") == File.read!("test/fixtures/ref_audio")
       assert File.read!("#{tmp_dir}/out_video") == File.read!("test/fixtures/ref_video")
+    end
+  end
+
+  defmodule CodecsNegotiation do
+    use ExUnit.Case, async: true
+
+    import Membrane.Testing.Assertions
+    alias Membrane.WebRTC
+
+    describe "codecs negotiation when" do
+      [
+        %{
+          test_title: "both video codecs are allowed but H264 is preferred",
+          webrtc_sink_params: [video_codec: [:vp8, :h264]],
+          webrtc_source_params: [
+            allowed_video_codecs: [:vp8, :h264],
+            preferred_video_codec: :h264
+          ]
+        },
+        %{
+          test_title: "source prefers VP8 but sink offers only H264",
+          webrtc_sink_params: [video_codec: [:h264]],
+          webrtc_source_params: [
+            allowed_video_codecs: [:vp8, :h264],
+            preferred_video_codec: :vp8
+          ]
+        }
+      ]
+      |> Enum.map(fn opts ->
+        test opts.test_title do
+          signaling = SignalingChannel.new()
+
+          webrtc_sink_params = [signaling: signaling] ++ unquote(opts.webrtc_sink_params)
+          webrtc_sink = struct!(WebRTC.Sink, webrtc_sink_params)
+
+          webrtc_source_params = [signaling: signaling] ++ unquote(opts.webrtc_source_params)
+          webrtc_source = struct!(WebRTC.Source, webrtc_source_params)
+
+          send_pipeline =
+            Testing.Pipeline.start_link_supervised!(
+              spec:
+                child(%Membrane.File.Source{location: "test/fixtures/input_bbb_h264.mkv"})
+                |> child(:demuxer, Membrane.Matroska.Demuxer)
+            )
+
+          assert_pipeline_notified(
+            send_pipeline,
+            :demuxer,
+            {:new_track, {mkv_video_id, %{codec: :h264}}}
+          )
+
+          assert_pipeline_notified(
+            send_pipeline,
+            :demuxer,
+            {:new_track, {mkv_audio_id, %{codec: :opus}}}
+          )
+
+          Testing.Pipeline.execute_actions(send_pipeline,
+            spec: [
+              child(:webrtc_sink, webrtc_sink),
+              get_child(:demuxer)
+              |> via_out(Pad.ref(:output, mkv_audio_id))
+              |> child(Membrane.Realtimer)
+              |> via_in(Pad.ref(:input, :audio), options: [kind: :audio])
+              |> get_child(:webrtc_sink),
+              get_child(:demuxer)
+              |> via_out(Pad.ref(:output, mkv_video_id))
+              |> child(%Membrane.H264.Parser{
+                output_alignment: :nalu,
+                output_stream_structure: :annexb
+              })
+              |> child(Membrane.Realtimer)
+              |> via_in(Pad.ref(:input, :video), options: [kind: :video])
+              |> get_child(:webrtc_sink)
+            ]
+          )
+
+          receive_pipeline =
+            Testing.Pipeline.start_link_supervised!(
+              spec: [
+                child(:webrtc_source, webrtc_source)
+                |> via_out(Pad.ref(:output, :audio), options: [kind: :audio])
+                |> child(Membrane.Debug.Sink),
+                get_child(:webrtc_source)
+                |> via_out(Pad.ref(:output, :video), options: [kind: :video])
+                |> child(Membrane.Debug.Sink)
+              ]
+            )
+
+          [{send_pipeline, :webrtc_sink}, {receive_pipeline, :webrtc_source}]
+          |> Enum.each(fn {pipeline, webrtc_element} ->
+            assert_pipeline_notified(
+              pipeline,
+              webrtc_element,
+              {:negotiated_video_codecs, [:h264]}
+            )
+          end)
+
+          Process.sleep(500)
+
+          [send_pipeline, receive_pipeline]
+          |> Enum.each(&Testing.Pipeline.terminate/1)
+        end
+      end)
     end
   end
 end

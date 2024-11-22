@@ -16,8 +16,15 @@ defmodule Membrane.WebRTC.Source do
   should be linked - the id of each pad should match one of the track ids.
   """
   use Membrane.Bin
+  require Membrane.Logger
 
-  alias Membrane.WebRTC.{ExWebRTCSource, ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{
+    ExWebRTCSource,
+    ExWebRTCUtils,
+    ForwardingFilter,
+    SignalingChannel,
+    SimpleWebSocketServer
+  }
 
   @typedoc """
   Notification sent when new tracks arrive.
@@ -57,9 +64,37 @@ defmodule Membrane.WebRTC.Source do
                 see there for details.
                 """
               ],
-              video_codec: [
+              allowed_video_codecs: [
+                spec: :vp8 | :h264 | [:vp8 | :h264],
+                default: :vp8,
+                description: """
+                Specifies, which video codecs can be accepted by the source during the SDP
+                negotiaion.
+
+                Either `:vp8`, `:h264` or a list containing both options.
+
+                Event if it is set to `[:h264, :vp8]`, the source will negotiate at most
+                one video codec. Negotiated codec can be deduced from
+                `{:negotiated_video_codecs, codecs}` notification sent to the parent.
+
+                If prefer to receive one video codec over another, but you are still able
+                to handle both of them, use `:preferred_video_codec` option.
+
+                By default only `:vp8`.
+                """
+              ],
+              preferred_video_codec: [
                 spec: :vp8 | :h264,
-                default: :vp8
+                default: :vp8,
+                description: """
+                Specyfies, which video codec will be preferred by the source, if both of
+                them will be available.
+
+                Usage of this option makes sense only if there are at least 2 codecs
+                specified in the `:allowed_video_codecs` option.
+
+                Defaults to `:vp8`.
+                """
               ],
               keyframe_interval: [
                 spec: Membrane.Time.t() | nil,
@@ -96,20 +131,15 @@ defmodule Membrane.WebRTC.Source do
 
   @impl true
   def handle_init(_ctx, opts) do
-    {signaling, opts} = opts |> Map.from_struct() |> Map.pop!(:signaling)
+    opts = opts |> Map.from_struct() |> Map.update!(:allowed_video_codecs, &Bunch.listify/1)
+    spec = child(:webrtc, struct(ExWebRTCSource, opts))
 
-    :ok = Membrane.WebRTC.Utils.validate_signaling!(signaling)
+    :ok = Membrane.WebRTC.Utils.validate_signaling!(opts.signaling)
 
-    spec =
-      child(:webrtc, %ExWebRTCSource{
-        signaling: signaling,
-        video_codec: opts.video_codec,
-        ice_servers: opts.ice_servers,
-        keyframe_interval: opts.keyframe_interval,
-        sdp_candidates_timeout: opts.sdp_candidates_timeout
-      })
+    state =
+      %{tracks: %{}, negotiated_video_codecs: nil, awaiting_pads: MapSet.new()}
+      |> Map.merge(opts)
 
-    state = %{tracks: %{}} |> Map.merge(opts)
     {[spec: spec], state}
   end
 
@@ -126,13 +156,37 @@ defmodule Membrane.WebRTC.Source do
       raise "Unknown track id #{inspect(pad_id)}, cannot link pad #{inspect(pad_ref)}"
     end
 
-    kind = kind || track.kind
+    link_webrtc(pad_ref, kind || track.kind, state)
+  end
 
+  defp link_webrtc(pad_ref, kind, state) do
     spec =
       get_child(:webrtc)
       |> via_out(pad_ref, options: [kind: kind])
-      |> then(if state.depayload_rtp, do: &get_depayloader(&1, kind, state), else: & &1)
-      |> bin_output(pad_ref)
+
+    {spec, state} =
+      cond do
+        not state.depayload_rtp ->
+          {spec |> bin_output(pad_ref), state}
+
+        kind == :audio ->
+          {spec |> get_depayloader(:audio, state) |> bin_output(pad_ref), state}
+
+        kind == :video and state.negotiated_video_codecs == nil ->
+          spec =
+            [
+              spec
+              |> child({:first_ff, pad_ref}, ForwardingFilter),
+              child({:second_ff, pad_ref}, ForwardingFilter)
+              |> bin_output(pad_ref)
+            ]
+
+          state = state |> Map.update!(:awaiting_pads, &MapSet.put(&1, pad_ref))
+          {spec, state}
+
+        kind == :video ->
+          {spec |> get_depayloader(:video, state) |> bin_output(pad_ref), state}
+      end
 
     {[spec: spec], state}
   end
@@ -144,6 +198,32 @@ defmodule Membrane.WebRTC.Source do
     {[notify_parent: {:new_tracks, tracks}], state}
   end
 
+  @impl true
+  def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
+    state = %{state | negotiated_video_codecs: codecs}
+
+    spec =
+      state.awaiting_pads
+      |> Enum.map(fn pad_ref ->
+        get_child({:first_ff, pad_ref})
+        |> get_depayloader(:video, state)
+        |> get_child({:second_ff, pad_ref})
+      end)
+
+    state = %{state | awaiting_pads: MapSet.new()}
+
+    {[notify_parent: {:negotiated_video_codecs, codecs}, spec: spec], state}
+  end
+
+  @impl true
+  def handle_child_notification(notification, child, _ctx, state) do
+    Membrane.Logger.debug(
+      "Received notification from child #{inspect(child)}: #{inspect(notification)}"
+    )
+
+    {[], state}
+  end
+
   defp get_depayloader(builder, :audio, _state) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.Opus.Depayloader,
@@ -151,14 +231,33 @@ defmodule Membrane.WebRTC.Source do
     })
   end
 
-  defp get_depayloader(builder, :video, %{video_codec: :vp8}) do
+  defp get_depayloader(builder, :video, state) do
+    cond do
+      state.allowed_video_codecs == [:vp8] ->
+        get_vp8_depayloader(builder)
+
+      state.allowed_video_codecs == [:h264] ->
+        get_h264_depayloader(builder)
+
+      state.negotiated_video_codecs == [:vp8] ->
+        get_vp8_depayloader(builder)
+
+      state.negotiated_video_codecs == [:h264] ->
+        get_h264_depayloader(builder)
+
+      state.negotiated_video_codecs == nil ->
+        raise "Cannot select depayloader before end of SDP messages exchange"
+    end
+  end
+
+  defp get_vp8_depayloader(builder) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
     })
   end
 
-  defp get_depayloader(builder, :video, %{video_codec: :h264}) do
+  defp get_h264_depayloader(builder) do
     child(builder, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)

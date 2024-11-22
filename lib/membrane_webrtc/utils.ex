@@ -30,6 +30,6 @@ defmodule Membrane.WebRTC.Utils do
 
   @spec do_raise(term()) :: no_return()
   defp do_raise(signaling) do
-    raise "Invalid signaling: #{inspect(signaling, pretty: true)}"
+    raise "Invalid signaling: #{inspect(signaling)}"
   end
 end

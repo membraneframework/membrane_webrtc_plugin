@@ -1,4 +1,4 @@
-defmodule Membrane.WebRTC.Sink.ForwardingFilter do
+defmodule Membrane.WebRTC.ForwardingFilter do
   @moduledoc false
   use Membrane.Filter
 
