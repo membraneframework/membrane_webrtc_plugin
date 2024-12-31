@@ -112,7 +112,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
     end
 
     @impl true
-    def handle_info({SignalingChannel, _pid, message}, state) do
+    def handle_info({SignalingChannel, _pid, message, _metadata}, state) do
       {:push, {:text, Jason.encode!(message)}, state}
     end
 
