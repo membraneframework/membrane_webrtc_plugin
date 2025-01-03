@@ -124,7 +124,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
 
     @impl true
     def handle_info(message, state) do
-      Logger.debug("Ignoring unsupported message #{inspect(message)}")
+      Logger.debug("#{inspect(__MODULE__)} process ingores unsupported message #{inspect(message)}")
       {:ok, state}
     end
   end
