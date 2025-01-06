@@ -175,9 +175,9 @@ defmodule Membrane.WebRTC.IntegrationTest do
         ]
       )
 
-      assert_pipeline_notified(receive_pipeline, :vid1, {:buffer, _buffer})
-      assert_pipeline_notified(receive_pipeline, :vid2, {:buffer, _buffer})
-      assert_pipeline_notified(receive_pipeline, :audio, {:buffer, _buffer})
+      assert_pipeline_notified(receive_pipeline, :vid1, {:buffer, _buffer}, 5_000)
+      assert_pipeline_notified(receive_pipeline, :vid2, {:buffer, _buffer}, 5_000)
+      assert_pipeline_notified(receive_pipeline, :audio, {:buffer, _buffer}, 5_000)
 
       {send_pipeline, receive_pipeline}
     end
@@ -246,8 +246,8 @@ defmodule Membrane.WebRTC.IntegrationTest do
         webrtc: %WebRTC.Source{signaling: signaling}
       )
 
-      assert_start_of_stream(receive_pipeline, {:audio_sink, 1}, :input)
-      assert_start_of_stream(receive_pipeline, {:video_sink, 1}, :input)
+      assert_start_of_stream(receive_pipeline, {:audio_sink, 1}, :input, 5_000)
+      assert_start_of_stream(receive_pipeline, {:video_sink, 1}, :input, 5_000)
 
       Process.sleep(1500)
 
