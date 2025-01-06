@@ -83,7 +83,7 @@ Process.monitor(supervisor)
 
 {:ok, _server} =
   :inets.start(:httpd,
-    bind_address: ~c"0.0.0.0",
+    bind_address: ~c"localhost",
     port: 8000,
     document_root: ~c"#{__DIR__}/assets/file_to_browser",
     server_name: ~c"webrtc",
@@ -91,7 +91,7 @@ Process.monitor(supervisor)
   )
 
 Logger.info("""
-The stream is available at http://0.0.0.0:8000/index.html.
+The stream is available at http://localhost:8000/index.html.
 """)
 
 receive do
