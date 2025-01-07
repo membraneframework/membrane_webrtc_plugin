@@ -95,6 +95,7 @@ defmodule Membrane.WebRTC.Sink do
       any_of(
         %Membrane.H264{alignment: :nalu},
         %Membrane.RemoteStream{content_format: Membrane.VP8},
+        Membrane.VP8,
         Membrane.Opus,
         Membrane.RTP
       ),
