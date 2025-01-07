@@ -30,7 +30,7 @@ defmodule Example.Pipeline do
             :whip,
             token: "whip_it!",
             port: opts[:port],
-            ip: :any,
+            ip: {127, 0, 0, 1},
             serve_static: "#{__DIR__}/assets/browser_to_file"
           }
         }),
