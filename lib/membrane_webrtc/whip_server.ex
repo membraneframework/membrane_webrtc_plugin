@@ -231,7 +231,7 @@ defmodule Membrane.WebRTC.WhipServer do
     end
 
     defp generate_resource_id() do
-      for _ <- 1..10, into: "", do: <<Enum.random(~c"0123456789abcdef")>>
+      for _i <- 1..10, into: "", do: <<Enum.random(~c"0123456789abcdef")>>
     end
 
     defp handler_name(resource_id) do

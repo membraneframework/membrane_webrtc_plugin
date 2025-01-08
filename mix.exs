@@ -42,7 +42,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:corsica, "~> 2.0"},
       {:membrane_rtp_plugin, "~> 0.30.0"},
       {:membrane_rtp_h264_plugin, "~> 0.20.1"},
-      {:membrane_rtp_vp8_plugin, "~> 0.9.3"},
+      {:membrane_rtp_vp8_plugin, "~> 0.9.4"},
       {:membrane_rtp_opus_plugin, "~> 0.10.0"},
       {:membrane_timestamp_queue, "~> 0.2.0"},
       {:bandit, "~> 1.2"},
