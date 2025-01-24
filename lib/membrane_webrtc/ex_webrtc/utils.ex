@@ -6,11 +6,16 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
   @type codec :: :opus | :h264 | :vp8
   @type codec_or_codecs :: codec() | [codec()]
 
+  @spec codec_payload_type(codec()) :: pos_integer()
+  def codec_payload_type(:opus), do: 111
+  def codec_payload_type(:h264), do: 96
+  def codec_payload_type(:vp8), do: 102
+
   @spec codec_params(codec_or_codecs()) :: [RTPCodecParameters.t()]
   def codec_params(:opus),
     do: [
       %RTPCodecParameters{
-        payload_type: 111,
+        payload_type: codec_payload_type(:opus),
         mime_type: "audio/opus",
         clock_rate: codec_clock_rate(:opus),
         channels: 2
@@ -18,13 +23,15 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     ]
 
   def codec_params(:h264) do
+    payload_type = codec_payload_type(:h264)
+
     [
       %RTPCodecParameters{
-        payload_type: 96,
+        payload_type: payload_type,
         mime_type: "video/H264",
         clock_rate: codec_clock_rate(:h264),
         sdp_fmtp_line: %ExSDP.Attribute.FMTP{
-          pt: 96,
+          pt: payload_type,
           level_asymmetry_allowed: 1,
           packetization_mode: 1,
           profile_level_id: 0x42E01F
@@ -36,7 +43,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
   def codec_params(:vp8) do
     [
       %RTPCodecParameters{
-        payload_type: 102,
+        payload_type: codec_payload_type(:vp8),
         mime_type: "video/VP8",
         clock_rate: codec_clock_rate(:vp8)
       }

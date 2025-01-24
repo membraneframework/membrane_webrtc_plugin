@@ -21,7 +21,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   def_input_pad :input,
     accepted_format: Membrane.RTP,
     availability: :on_request,
-    options: [kind: []]
+    options: [kind: [], payload_type: [default: nil]]
 
   @max_rtp_timestamp 2 ** 32 - 1
   @max_rtp_seq_num 2 ** 16 - 1
@@ -115,8 +115,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_buffer(pad, buffer, _ctx, state) do
-    state = send_buffer(pad, buffer, state)
+  def handle_buffer(pad, buffer, ctx, state) do
+    state = send_buffer(pad, buffer, ctx, state)
     {[], state}
   end
 
@@ -206,11 +206,12 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
         state
       ) do
     Membrane.Logger.debug("Received SDP answer")
+    IO.puts("SDP ANSWER:  \n" <> sdp.sdp <> "\n")
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
     %{negotiating_tracks: negotiating_tracks, negotiated_tracks: negotiated_tracks} = state
 
-    video_codecs = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
+    video_codecs = ExWebRTCUtils.get_video_codecs_from_sdp(sdp) |> IO.inspect(label: "VIDEO CODECS FROM SDP")
 
     to_notify =
       negotiating_tracks |> Enum.filter(& &1.notify) |> Enum.map(&Map.take(&1, [:id, :kind]))
@@ -266,12 +267,13 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     |> Enum.each(&PeerConnection.set_transceiver_direction(pc, &1.id, :sendonly))
 
     {:ok, offer} = PeerConnection.create_offer(pc)
+    # IO.puts("SDP OFFER:  \n" <> offer.sdp <> "\n")
     :ok = PeerConnection.set_local_description(pc, offer)
     SignalingChannel.signal(state.signaling, offer)
     %{state | negotiating_tracks: negotiating_tracks, queued_tracks: []}
   end
 
-  defp send_buffer(pad, buffer, state) do
+  defp send_buffer(pad, buffer, ctx, state) do
     {id, params} = state.input_tracks[pad]
 
     timestamp =
@@ -287,6 +289,12 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
         marker: buffer.metadata[:rtp][:marker] || false,
         sequence_number: params.seq_num
       )
+
+    packet =
+      case ctx.pads[pad].options.payload_type do
+        int when is_integer(int) -> %{packet | payload_type: int}
+        nil -> packet
+      end
 
     PeerConnection.send_rtp(state.pc, id, packet)
     seq_num = rem(params.seq_num + 1, @max_rtp_seq_num + 1)

@@ -16,11 +16,14 @@ defmodule Membrane.WebRTC.Sink do
   the track received in `t:new_tracks/0` notification.
   """
   use Membrane.Bin
+  require Membrane.Logger
 
   alias Membrane.H264
   alias Membrane.RemoteStream
   alias Membrane.VP8
-  alias Membrane.WebRTC.{ExWebRTCSink, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCSink, ExWebRTCUtils, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
+
+  # alias __MODULE__.PayloadTypeSetter
 
   @typedoc """
   Notification that should be sent to the bin to negotiate new tracks.
@@ -132,7 +135,7 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   @impl true
-  def handle_pad_added(Pad.ref(:input, pid) = pad_ref, %{pad_options: %{kind: kind}}, state) do
+  def handle_pad_added(Pad.ref(:input, id) = pad_ref, %{pad_options: %{kind: kind}}, state) do
     spec =
       cond do
         not state.payload_rtp ->
@@ -141,9 +144,11 @@ defmodule Membrane.WebRTC.Sink do
           |> get_child(:webrtc)
 
         kind == :audio ->
+          payload_type = ExWebRTCUtils.codec_payload_type(:opus)
+
           bin_input(pad_ref)
-          |> child({:rtp_opus_payloader, pid}, Membrane.RTP.Opus.Payloader)
-          |> via_in(pad_ref, options: [kind: :audio])
+          |> child({:rtp_opus_payloader, id}, Membrane.RTP.Opus.Payloader)
+          |> via_in(pad_ref, options: [kind: :audio, payload_type: payload_type])
           |> get_child(:webrtc)
 
         kind == :video ->
@@ -161,17 +166,19 @@ defmodule Membrane.WebRTC.Sink do
         _ctx,
         state
       ) do
-    payoader =
+    {payloader, codec} =
       case stream_format do
-        %H264{} -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
-        %VP8{} -> Membrane.RTP.VP8.Payloader
-        %RemoteStream{content_format: VP8} -> Membrane.RTP.VP8.Payloader
+        %H264{} ->{%Membrane.RTP.H264.Payloader{max_payload_size: 1000}, :h264}
+        %VP8{} -> {Membrane.RTP.VP8.Payloader, :vp8}
+        %RemoteStream{content_format: VP8} -> {Membrane.RTP.VP8.Payloader, :vp8}
       end
+
+    payload_type = ExWebRTCUtils.codec_payload_type(codec)
 
     spec =
       get_child({:forwarding_filter, pad_ref})
-      |> child({:rtp_payloader, pad_ref}, payoader)
-      |> via_in(pad_ref, options: [kind: :video])
+      |> child({:rtp_payloader, pad_ref}, payloader)
+      |> via_in(pad_ref, options: [kind: :video, payload_type: payload_type])
       |> get_child(:webrtc)
 
     {[spec: spec], state}
@@ -183,9 +190,24 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   @impl true
-  def handle_child_notification({type, _content} = notification, :webrtc, _ctx, state)
-      when type in [:new_tracks, :negotiated_video_codecs] do
-    {[notify_parent: notification], state}
+  def handle_child_notification({:negotiated_video_codecs, codecs}, :webrtc, _ctx, state) do
+    if length(codecs) > 2 and state.payload_rtp do
+      Membrane.Logger.warning("""
+      Negotiated more then one video codec (#{inspect(codecs)}), while this bin will receive `Membrane.RTP` \
+      packets on the input, with no information about codecs used to encode video streams. \
+      Lack of this information might lead to setting inapropriate payload type of RTP packets and further \
+      errors.
+
+      You can fix this problem by setting `:video_codec` option to `:vp8` or to `:h264`.
+      """)
+    end
+
+    {[notify_parent: {:negotiated_video_codecs, codecs}], state}
+  end
+
+  @impl true
+  def handle_child_notification({:new_tracks, new_tracks}, :webrtc, _ctx, state) do
+    {[notify_parent: {:new_tracks, new_tracks}], state}
   end
 
   @impl true
