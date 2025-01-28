@@ -73,7 +73,7 @@ defmodule Membrane.WebRTC.WhipServer do
     use Plug.Router
 
     plug(Plug.Logger, log: :debug)
-    plug(Corsica, origins: "*")
+    plug(Corsica, origins: "*", allow_methods: :all, allow_headers: :all)
     plug(:match)
     plug(:dispatch)
 
@@ -116,6 +116,7 @@ defmodule Membrane.WebRTC.WhipServer do
 
         conn
         |> put_resp_header("location", Path.join(conn.request_path, "resource/#{resource_id}"))
+        |> put_resp_header("access-control-expose-headers", "location")
         |> put_resp_content_type("application/sdp")
         |> resp(201, answer_sdp)
       else
