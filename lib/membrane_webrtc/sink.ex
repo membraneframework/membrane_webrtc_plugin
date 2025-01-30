@@ -123,7 +123,7 @@ defmodule Membrane.WebRTC.Sink do
         ice_servers: opts.ice_servers
       })
 
-    {[spec: spec], %{tracks: %{}, payload_rtp: opts.payload_rtp, video_codec: opts.video_codec}}
+    {[spec: spec], %{payload_rtp: opts.payload_rtp, video_codec: opts.video_codec}}
   end
 
   @impl true
@@ -156,12 +156,23 @@ defmodule Membrane.WebRTC.Sink do
 
   @impl true
   def handle_child_notification(
+        {:stream_format, _stream_format},
+        {:forwarding_filter, pad_ref},
+        ctx,
+        state
+      )
+      when is_map_key(ctx.children, {:rtp_payloader, pad_ref}) do
+    {[], state}
+  end
+
+  @impl true
+  def handle_child_notification(
         {:stream_format, stream_format},
         {:forwarding_filter, pad_ref},
         _ctx,
         state
       ) do
-    payoader =
+    payloader =
       case stream_format do
         %H264{} -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
         %VP8{} -> Membrane.RTP.VP8.Payloader
@@ -170,7 +181,7 @@ defmodule Membrane.WebRTC.Sink do
 
     spec =
       get_child({:forwarding_filter, pad_ref})
-      |> child({:rtp_payloader, pad_ref}, payoader)
+      |> child({:rtp_payloader, pad_ref}, payloader)
       |> via_in(pad_ref, options: [kind: :video])
       |> get_child(:webrtc)
 
