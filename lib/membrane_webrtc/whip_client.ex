@@ -115,7 +115,7 @@ defmodule Membrane.WebRTC.WhipClient do
 
   @impl true
   def handle_info(
-        {:DOWN, _monitor, pid, _type, _reason},
+        {:DOWN, _monitor, _type, pid, _reason},
         %{signaling: %SignalingChannel{pid: pid}} = state
       ) do
     {:stop, :normal, state}
