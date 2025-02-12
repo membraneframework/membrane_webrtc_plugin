@@ -143,7 +143,7 @@ defmodule Membrane.WebRTC.Sink do
         kind == :audio ->
           bin_input(pad_ref)
           |> child({:rtp_opus_payloader, pid}, Membrane.RTP.Opus.Payloader)
-          |> via_in(pad_ref, options: [kind: :audio, codec: :opus])
+          |> via_in(pad_ref, options: [kind: :audio])
           |> get_child(:webrtc)
 
         kind == :video ->
@@ -172,23 +172,17 @@ defmodule Membrane.WebRTC.Sink do
         _ctx,
         state
       ) do
-    codec =
-      case stream_format do
-        %H264{} -> :h264
-        %VP8{} -> :vp8
-        %RemoteStream{content_format: VP8} -> :vp8
-      end
-
     payloader =
-      case codec do
-        :h264 -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
-        :vp8 -> Membrane.RTP.VP8.Payloader
+      case stream_format do
+        %H264{} -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
+        %VP8{} -> Membrane.RTP.VP8.Payloader
+        %RemoteStream{content_format: VP8} -> Membrane.RTP.VP8.Payloader
       end
 
     spec =
       get_child({:forwarding_filter, pad_ref})
       |> child({:rtp_payloader, pad_ref}, payloader)
-      |> via_in(pad_ref, options: [kind: :video, codec: codec])
+      |> via_in(pad_ref, options: [kind: :video])
       |> get_child(:webrtc)
 
     {[spec: spec], state}
