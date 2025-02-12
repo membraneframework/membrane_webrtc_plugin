@@ -21,7 +21,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   def_input_pad :input,
     accepted_format: Membrane.RTP,
     availability: :on_request,
-    options: [kind: []]
+    options: [kind: [], codec: [default: nil]]
 
   @max_rtp_timestamp 2 ** 32 - 1
   @max_rtp_seq_num 2 ** 16 - 1
@@ -112,6 +112,68 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     input_tracks = Map.put(input_tracks, pad, {track.id, params})
     state = %{state | negotiated_tracks: negotiated_tracks, input_tracks: input_tracks}
     {[], state}
+  end
+
+  @impl true
+  def handle_start_of_stream(pad, ctx, state) do
+    case ctx.pads[pad].options do
+      %{kind: :audio} ->
+        :ok
+
+      %{kind: :video, codec: nil} ->
+        supported_video_codecs = get_video_transceiver(state.pc).codecs
+
+        if length(supported_video_codecs) > 1 do
+          Membrane.Logger.warning("""
+          Cannot select expicitly video codec, while various video codecs have been negotiated. \
+          This might be caused be passing `Membrane.RTP` to `Membrane.WebRTC.Sink` and allowing \
+          to negotiate more than one video codec.
+
+          Negotiated video codecs: #{inspect(supported_video_codecs, pretty: true)}
+          """)
+        end
+
+        :ok
+
+      %{kind: :video, codec: codec} ->
+        :ok = set_pc_sender_video_codec(state.pc, codec)
+    end
+
+    {[], state}
+  end
+
+  defp set_pc_sender_video_codec(pc, codec) when codec in [:vp8, :h264] do
+    pc
+    |> PeerConnection.get_transceivers()
+    |> IO.inspect(label: "PC TRANSCEIVERS")
+
+    mime_type = if codec == :vp8, do: "video/VP8", else: "video/H264"
+    video_transceiver = get_video_transceiver(pc)
+
+    if video_transceiver == nil do
+      raise """
+      Pad with `kind: :video` was linked, but #{inspect(PeerConnection)} doesn't have any video \
+      transceiver.
+      """
+    end
+
+    selected_codec =
+      video_transceiver.codecs
+      |> Enum.find(&(&1.mime_type == mime_type))
+
+    if selected_codec == nil do
+      raise """
+      Cannot select codec #{inspect(codec)} with video transceiver #{inspect(video_transceiver)}
+      """
+    end
+
+    :ok = PeerConnection.set_sender_codec(pc, video_transceiver.sender.id, selected_codec)
+  end
+
+  defp get_video_transceiver(pc) do
+    pc
+    |> PeerConnection.get_transceivers()
+    |> Enum.find(&(&1.kind == :video))
   end
 
   @impl true

@@ -411,6 +411,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
     describe "codecs negotiation when" do
       [
         %{
+          tag: :a,
           test_title: "both video codecs are allowed but H264 is preferred",
           webrtc_sink_params: [video_codec: [:vp8, :h264]],
           webrtc_source_params: [
@@ -419,6 +420,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
           ]
         },
         %{
+          tag: :b,
           test_title: "source prefers VP8 but sink offers only H264",
           webrtc_sink_params: [video_codec: [:h264]],
           webrtc_source_params: [
@@ -428,6 +430,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
         }
       ]
       |> Enum.map(fn opts ->
+        @tag opts.tag
         test opts.test_title do
           signaling = SignalingChannel.new()
 
