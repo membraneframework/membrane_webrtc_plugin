@@ -143,10 +143,6 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   defp set_pc_sender_video_codec(pc, codec) when codec in [:vp8, :h264] do
-    pc
-    |> PeerConnection.get_transceivers()
-    |> IO.inspect(label: "PC TRANSCEIVERS")
-
     mime_type = if codec == :vp8, do: "video/VP8", else: "video/H264"
     video_transceiver = get_video_transceiver(pc)
 
