@@ -170,7 +170,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
     state.pc
     |> PeerConnection.get_transceivers()
-    |> Enum.find(& &1.sender.track.id == track_id)
+    |> Enum.find(&(&1.sender.track.id == track_id))
   end
 
   @impl true
