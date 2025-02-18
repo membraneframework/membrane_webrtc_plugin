@@ -77,8 +77,8 @@ defmodule Membrane.WebRTC.Sink do
                 WebRTC peer.
 
                 After SDP messages exchange, #{inspect(__MODULE__)} will send a parent
-                notification `{:new_tracks, tracks}`, where every track in `tracks`
-                contains info about supported codecs.
+                notification `{:negotiated_video_codecs, codecs}` where `codecs` is
+                a list of supported codecs.
                 """
               ],
               ice_servers: [
