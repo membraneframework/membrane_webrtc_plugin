@@ -25,7 +25,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
         clock_rate: codec_clock_rate(:h264),
         sdp_fmtp_line: %ExSDP.Attribute.FMTP{
           pt: 96,
-          level_asymmetry_allowed: 1,
+          level_asymmetry_allowed: true,
           packetization_mode: 1,
           profile_level_id: 0x42E01F
         }
