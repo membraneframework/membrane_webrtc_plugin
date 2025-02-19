@@ -4,7 +4,7 @@ defmodule Membrane.WebRTC.WhipClient do
 
   Accepts the following options:
   - `uri` - address of a WHIP server
-  - `signaling` - the signaling channel - pass the same channel to `Membrane.WebRTC.Sink`
+  - `signaling` - the signaling channel - pass the same signaling channel to `Membrane.WebRTC.Sink`
     to connect it with the WHIP client
   - `token` - token to authenticate in the server, defaults to an empty string
   """
@@ -13,10 +13,10 @@ defmodule Membrane.WebRTC.WhipClient do
   require Logger
 
   alias ExWebRTC.{ICECandidate, SessionDescription}
-  alias Membrane.WebRTC.SignalingChannel
+  alias Membrane.WebRTC.Signaling
 
   @spec start_link([
-          {:signaling, SignalingChannel.t()} | {:uri, String.t()} | {:token, String.t()}
+          {:signaling, Signaling.t()} | {:uri, String.t()} | {:token, String.t()}
         ]) ::
           {:ok, pid()}
   def start_link(opts) do
@@ -32,14 +32,14 @@ defmodule Membrane.WebRTC.WhipClient do
 
   @impl true
   def init(opts) do
-    SignalingChannel.register_peer(opts.signaling)
+    Signaling.register_peer(opts.signaling)
     Process.monitor(opts.signaling.pid)
     {:ok, Map.merge(opts, %{resource_uri: nil})}
   end
 
   @impl true
   def handle_info(
-        {SignalingChannel, pid, %SessionDescription{type: :offer, sdp: offer_sdp}, _metadata},
+        {Signaling, pid, %SessionDescription{type: :offer, sdp: offer_sdp}, _metadata},
         %{signaling: signaling} = state
       )
       when signaling.pid == pid do
@@ -79,13 +79,13 @@ defmodule Membrane.WebRTC.WhipClient do
         do: Logger.warning("Failed to send delete request to #{resource_uri}")
     end)
 
-    SignalingChannel.signal(signaling, %SessionDescription{type: :answer, sdp: answer_sdp})
+    Signaling.signal(signaling, %SessionDescription{type: :answer, sdp: answer_sdp})
     {:noreply, %{state | resource_uri: resource_uri}}
   end
 
   @impl true
   def handle_info(
-        {SignalingChannel, pid, %ICECandidate{} = candidate, _metadata},
+        {Signaling, pid, %ICECandidate{} = candidate, _metadata},
         %{signaling: signaling} = state
       )
       when signaling.pid == pid do
@@ -116,7 +116,7 @@ defmodule Membrane.WebRTC.WhipClient do
   @impl true
   def handle_info(
         {:DOWN, _monitor, _type, pid, _reason},
-        %{signaling: %SignalingChannel{pid: pid}} = state
+        %{signaling: %Signaling{pid: pid}} = state
       ) do
     {:stop, :normal, state}
   end

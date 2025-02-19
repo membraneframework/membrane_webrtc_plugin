@@ -9,7 +9,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
   alias Membrane.Testing
   alias Membrane.WebRTC
-  alias Membrane.WebRTC.SignalingChannel
+  alias Membrane.WebRTC.Signaling
 
   defmodule KeyframeTestSource do
     use Membrane.Source
@@ -130,7 +130,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
     end
 
     def run_keyframe_testing_pipelines(opts \\ []) do
-      signaling = SignalingChannel.new()
+      signaling = Signaling.new()
 
       send_pipeline = Testing.Pipeline.start_link_supervised!()
 
@@ -191,7 +191,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     @tag :tmp_dir
     test "send and receive a file", %{tmp_dir: tmp_dir} do
-      signaling = SignalingChannel.new()
+      signaling = Signaling.new()
       send_pipeline = Testing.Pipeline.start_link_supervised!()
 
       prepare_input(send_pipeline,
@@ -233,7 +233,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
     @tag :tmp_dir
     test "dynamically add new tracks", %{tmp_dir: tmp_dir} do
-      signaling = SignalingChannel.new()
+      signaling = Signaling.new()
 
       send_pipeline = Testing.Pipeline.start_link_supervised!()
       prepare_input(send_pipeline, webrtc: %WebRTC.Sink{signaling: signaling})
@@ -428,7 +428,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
       ]
       |> Enum.map(fn opts ->
         test opts.test_title do
-          signaling = SignalingChannel.new()
+          signaling = Signaling.new()
 
           webrtc_sink_params = [signaling: signaling] ++ unquote(opts.webrtc_sink_params)
           webrtc_sink = struct!(WebRTC.Sink, webrtc_sink_params)

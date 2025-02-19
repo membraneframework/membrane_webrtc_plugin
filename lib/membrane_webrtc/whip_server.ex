@@ -13,11 +13,11 @@ defmodule Membrane.WebRTC.WhipServer do
   - Any of `t:Bandit.options/0` - Bandit configuration
   """
 
-  alias Membrane.WebRTC.SignalingChannel
+  alias Membrane.WebRTC.Signaling
 
   @type option ::
           {:handle_new_client,
-           (token :: String.t() -> {:ok, SignalingChannel.t()} | {:error, reason :: term()})}
+           (token :: String.t() -> {:ok, Signaling.t()} | {:error, reason :: term()})}
           | {:serve_static, String.t() | false}
           | {atom, term()}
   @spec child_spec([option()]) :: Supervisor.child_spec()
@@ -61,8 +61,8 @@ defmodule Membrane.WebRTC.WhipServer do
 
       def handle_new_client(token) do
         validate_token!(token)
-        signaling = Membrane.WebRTC.SignalingChannel.new()
-        # pass the signaling channel to a pipeline
+        signaling = Membrane.WebRTC.Signaling.new()
+        # pass the signaling to a pipeline
         {:ok, signaling}
       end
     end
@@ -141,7 +141,7 @@ defmodule Membrane.WebRTC.WhipServer do
         }
 
         ClientHandler.exec(handler_name(resource_id), fn signaling ->
-          SignalingChannel.signal(signaling, candidate)
+          Signaling.signal(signaling, candidate)
           {:ok, signaling}
         end)
 
@@ -210,16 +210,16 @@ defmodule Membrane.WebRTC.WhipServer do
     defp get_answer(client_handler, offer_sdp, token, handle_new_client) do
       ClientHandler.exec(client_handler, fn _state ->
         with {:ok, signaling} <- handle_new_client.(token) do
-          SignalingChannel.register_peer(signaling)
+          Signaling.register_peer(signaling)
 
-          SignalingChannel.signal(
+          Signaling.signal(
             signaling,
             %ExWebRTC.SessionDescription{type: :offer, sdp: offer_sdp},
             %{candidates_in_sdp: true}
           )
 
           receive do
-            {SignalingChannel, _pid, answer, _metadata} ->
+            {Signaling, _pid, answer, _metadata} ->
               %ExWebRTC.SessionDescription{type: :answer, sdp: answer_sdp} = answer
               {{:ok, answer_sdp}, signaling}
           after
