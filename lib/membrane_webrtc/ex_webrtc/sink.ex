@@ -125,9 +125,10 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
         if length(supported_video_codecs) > 1 do
           raise """
-          Cannot select expicitly video codec, while various video codecs have been negotiated. \
-          This might be caused be passing `Membrane.RTP` to `Membrane.WebRTC.Sink` and allowing \
-          to negotiate more than one video codec.
+          Cannot determine the video codec of the stream. It's necessary, as multiple video codecs \
+          have been negotiated. This error might be caused by passing `Membrane.RTP` to \
+          `Membrane.WebRTC.Sink` and allowing to negotiate more than one video codec at the same \
+          time.
           Negotiated video codecs: #{inspect(supported_video_codecs, pretty: true)}
           """
         end
