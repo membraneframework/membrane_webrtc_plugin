@@ -20,7 +20,7 @@ defmodule Membrane.WebRTC.Sink do
   alias Membrane.H264
   alias Membrane.RemoteStream
   alias Membrane.VP8
-  alias Membrane.WebRTC.{ExWebRTCSink, ForwardingFilter, SignalingChannel, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCSink, ForwardingFilter, Signaling, SimpleWebSocketServer}
 
   @typedoc """
   Notification that should be sent to the bin to negotiate new tracks.
@@ -46,13 +46,13 @@ defmodule Membrane.WebRTC.Sink do
 
   def_options signaling: [
                 spec:
-                  SignalingChannel.t()
+                  Signaling.t()
                   | {:whip, whip_options}
                   | {:websocket, SimpleWebSocketServer.options()},
                 description: """
-                Channel for passing WebRTC signaling messages (SDP and ICE).
+                Signaling channel for passing WebRTC signaling messages (SDP and ICE).
                 Either:
-                - `#{inspect(SignalingChannel)}` - See its docs for details.
+                - `#{inspect(Signaling)}` - See its docs for details.
                 - `{:whip, options}` - Acts as a WHIP client, see `t:whip_options/0` for details.
                 - `{:websocket, options}` - Spawns #{inspect(SimpleWebSocketServer)},
                 see there for details.

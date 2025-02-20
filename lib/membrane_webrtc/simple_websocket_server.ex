@@ -6,7 +6,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   element.
 
   The messages sent and received by the server are JSON-encoded
-  `t:Membrane.WebRTC.SignalingChannel.json_data_message/0`.
+  `t:Membrane.WebRTC.Signaling.json_data_message/0`.
   Additionally, the server sends a `{type: "keep_alive", data: ""}`
   messages to prevent the WebSocket from being closed.
 
@@ -14,7 +14,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   be found in the `examples` directory.
   """
 
-  alias Membrane.WebRTC.SignalingChannel
+  alias Membrane.WebRTC.Signaling
 
   @typedoc """
   Options for the server.
@@ -24,7 +24,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   @type options :: [ip: :inet.ip_address(), port: :inet.port_number()]
 
   @doc false
-  @spec child_spec({options, SignalingChannel.t()}) :: Supervisor.child_spec()
+  @spec child_spec({options, Signaling.t()}) :: Supervisor.child_spec()
   def child_spec({opts, signaling}) do
     opts = opts |> validate_options!() |> Map.new()
 
@@ -41,9 +41,9 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   def validate_options!(options), do: Keyword.validate!(options, [:port, ip: {127, 0, 0, 1}])
 
   @doc false
-  @spec start_link_supervised(pid, options) :: SignalingChannel.t()
+  @spec start_link_supervised(pid, options) :: Signaling.t()
   def start_link_supervised(utility_supervisor, opts) do
-    signaling = SignalingChannel.new()
+    signaling = Signaling.new()
 
     {:ok, _pid} =
       Membrane.UtilitySupervisor.start_link_child(
@@ -96,23 +96,23 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
 
     require Logger
 
-    alias Membrane.WebRTC.SignalingChannel
+    alias Membrane.WebRTC.Signaling
 
     @impl true
     def init(opts) do
-      SignalingChannel.register_peer(opts.signaling, message_format: :json_data)
+      Signaling.register_peer(opts.signaling, message_format: :json_data)
       Process.send_after(self(), :keep_alive, 30_000)
       {:ok, %{signaling: opts.signaling}}
     end
 
     @impl true
     def handle_in({message, opcode: :text}, state) do
-      SignalingChannel.signal(state.signaling, Jason.decode!(message))
+      Signaling.signal(state.signaling, Jason.decode!(message))
       {:ok, state}
     end
 
     @impl true
-    def handle_info({SignalingChannel, _pid, message, _metadata}, state) do
+    def handle_info({Signaling, _pid, message, _metadata}, state) do
       {:push, {:text, Jason.encode!(message)}, state}
     end
 

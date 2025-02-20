@@ -6,7 +6,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   require Membrane.Logger
 
   alias ExWebRTC.{ICECandidate, PeerConnection, SessionDescription}
-  alias Membrane.WebRTC.{ExWebRTCUtils, SignalingChannel, SimpleWebSocketServer, WhipServer}
+  alias Membrane.WebRTC.{ExWebRTCUtils, Signaling, SimpleWebSocketServer, WhipServer}
 
   def_options signaling: [],
               allowed_video_codecs: [],
@@ -36,7 +36,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             output_tracks: %{(pad_id :: term()) => output_track()},
             awaiting_outputs: [{:video | :audio, Membrane.Pad.ref()}],
             awaiting_candidates: [ExWebRTC.ICECandidate.t()],
-            signaling: SignalingChannel.t() | {:websocket, SimpleWebSocketServer.options()},
+            signaling: Signaling.t() | {:websocket, SimpleWebSocketServer.options()},
             status: :init | :connecting | :connected | :closed,
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
@@ -103,7 +103,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   @impl true
   def handle_playing(_ctx, state) do
     Process.monitor(state.signaling.pid)
-    SignalingChannel.register_element(state.signaling)
+    Signaling.register_element(state.signaling)
 
     {[], %{state | status: :connecting}}
   end
@@ -193,7 +193,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info({:ex_webrtc, _from, {:ice_candidate, candidate}}, _ctx, state) do
-    SignalingChannel.signal(state.signaling, candidate)
+    Signaling.signal(state.signaling, candidate)
     {[], state}
   end
 
@@ -210,7 +210,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info(
-        {SignalingChannel, _pid, %SessionDescription{type: :offer} = sdp, metadata},
+        {Signaling, _pid, %SessionDescription{type: :offer} = sdp, metadata},
         _ctx,
         state
       ) do
@@ -269,7 +269,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({SignalingChannel, _pid, %ICECandidate{} = candidate, _metadata}, _ctx, state) do
+  def handle_info({Signaling, _pid, %ICECandidate{} = candidate, _metadata}, _ctx, state) do
     case PeerConnection.add_ice_candidate(state.pc, candidate) do
       :ok ->
         {[], state}
@@ -356,7 +356,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
           answer
         end
 
-      SignalingChannel.signal(state.signaling, answer)
+      Signaling.signal(state.signaling, answer)
       %{state | awaiting_candidates: [], candidates_in_sdp: false}
     else
       state
@@ -394,7 +394,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   defp setup_whip(ctx, opts) do
-    signaling = SignalingChannel.new()
+    signaling = Signaling.new()
     clients_cnt = :atomics.new(1, [])
     {token, opts} = Keyword.pop(opts, :token, fn _token -> true end)
     validate_token = if is_function(token), do: token, else: &(&1 == token)
