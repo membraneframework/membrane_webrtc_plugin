@@ -24,8 +24,9 @@ defmodule Membrane.WebRTC.SignalingChannel do
   @spec register_peer(t, message_format: :ex_webrtc | :json_data, pid: pid) :: :ok
   defdelegate register_peer(signaling, opts \\ []), to: Signaling
 
+  @doc false
   @spec register_element(t) :: :ok
-  def register_element(signaling), do: Signaling.register_element(signaling)
+  defdelegate register_element(signaling), to: Signaling
 
   @spec signal(t, message_content, metadata :: map) :: :ok
   defdelegate signal(signaling, message, metadata \\ %{}), to: Signaling
