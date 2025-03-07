@@ -1,11 +1,10 @@
 defmodule Membrane.WebRTC.PhoenixSignaling.Channel do
   use Phoenix.Channel
-  alias Membrane.WebRTC.{PhoenixSignaling, Signaling}
+  alias Membrane.WebRTC.PhoenixSignaling
 
   @impl true
   def join(signaling_id, _payload, socket) do
-    signaling = PhoenixSignaling.get_or_create(signaling_id)
-    Signaling.register_peer(signaling, message_format: :json_data)
+    PhoenixSignaling.register_channel(signaling_id)
     socket = assign(socket, :signaling_id, signaling_id)
     {:ok, socket}
   end
@@ -13,13 +12,12 @@ defmodule Membrane.WebRTC.PhoenixSignaling.Channel do
   @impl true
   def handle_in(signaling_id, msg, socket) do
     msg = Jason.decode!(msg)
-    signaling = PhoenixSignaling.get!(signaling_id)
-    Signaling.signal(signaling, msg)
+    PhoenixSignaling.signal(signaling_id, msg)
     {:noreply, socket}
   end
 
   @impl true
-  def handle_info({Signaling, _pid, msg, _metadata}, socket) do
+  def handle_info({Membrane.WebRTC.Signaling, _pid, msg, _metadata}, socket) do
     push(socket, socket.assigns.signaling_id, msg)
     {:noreply, socket}
   end
