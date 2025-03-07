@@ -32,7 +32,6 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
     GenServer.start(__MODULE__, args, name: __MODULE__)
   end
 
-
   @spec start(term()) :: GenServer.on_start()
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -62,7 +61,6 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
     signaling = get_or_create(signaling_id)
     Signaling.register_peer(signaling, message_format: :json_data, pid: channel_pid)
   end
-
 
   @doc """
   Sends a signal message via the Phoenix Signaling instance associated with given signaling ID.
