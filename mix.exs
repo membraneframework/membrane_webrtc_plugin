@@ -56,7 +56,8 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:membrane_opus_plugin, "~> 0.20.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
-      {:credo, ">= 0.0.0", only: :dev, runtime: false}
+      {:credo, ">= 0.0.0", only: :dev, runtime: false},
+      {:phoenix, ">= 0.0.0", optional: :dev}
     ]
   end
 
