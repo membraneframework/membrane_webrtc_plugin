@@ -108,6 +108,14 @@ defmodule Membrane.WebRTC.Source do
                 spec: [ExWebRTC.PeerConnection.Configuration.ice_server()],
                 default: [%{urls: "stun:stun.l.google.com:19302"}]
               ],
+              ice_port_range: [
+                spec: Enumerable.t(non_neg_integer()),
+                default: [0]
+              ],
+              ice_ip_filter: [
+                spec: (:inet.ip_address() -> boolean()) | nil,
+                default: fn _ -> true end
+              ],
               depayload_rtp: [
                 spec: boolean(),
                 default: true

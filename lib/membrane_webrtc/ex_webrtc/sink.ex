@@ -16,7 +16,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   alias Membrane.WebRTC.{ExWebRTCUtils, Signaling, SimpleWebSocketServer}
 
-  def_options signaling: [], tracks: [], video_codec: [], ice_servers: []
+  def_options signaling: [], tracks: [], video_codec: [], ice_servers: [], ice_port_range: [], ice_ip_filter: fn _ -> true end
 
   def_input_pad :input,
     accepted_format: Membrane.RTP,
@@ -41,7 +41,9 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        audio_params: ExWebRTCUtils.codec_params(:opus),
        video_params: ExWebRTCUtils.codec_params(opts.video_codec),
        video_codec: opts.video_codec,
-       ice_servers: opts.ice_servers
+       ice_servers: opts.ice_servers,
+       ice_port_range: opts.ice_port_range,
+       ice_ip_filter: opts.ice_ip_filter
      }}
   end
 
@@ -69,6 +71,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     {:ok, pc} =
       PeerConnection.start_link(
         ice_servers: state.ice_servers,
+        ice_port_range: state.ice_port_range,
+        ice_ip_filter: state.ice_ip_filter,
         video_codecs: state.video_params,
         audio_codecs: state.audio_params
       )
