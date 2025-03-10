@@ -85,6 +85,14 @@ defmodule Membrane.WebRTC.Sink do
                 spec: [ExWebRTC.PeerConnection.Configuration.ice_server()],
                 default: [%{urls: "stun:stun.l.google.com:19302"}]
               ],
+              ice_port_range: [
+                spec: Enumerable.t(non_neg_integer()),
+                default: [0]
+              ],
+              ice_ip_filter: [
+                spec: (:inet.ip_address() -> boolean()) | nil,
+                default: &__MODULE__.default_ice_ip_filter/1
+              ],
               payload_rtp: [
                 spec: boolean(),
                 default: true
@@ -120,7 +128,9 @@ defmodule Membrane.WebRTC.Sink do
         signaling: opts.signaling,
         tracks: opts.tracks,
         video_codec: opts.video_codec,
-        ice_servers: opts.ice_servers
+        ice_servers: opts.ice_servers,
+        ice_port_range: opts.ice_port_range,
+        ice_ip_filter: opts.ice_ip_filter
       })
 
     {[spec: spec], %{payload_rtp: opts.payload_rtp, video_codec: opts.video_codec}}
@@ -219,4 +229,6 @@ defmodule Membrane.WebRTC.Sink do
   def handle_element_end_of_stream(_name, _pad, _ctx, state) do
     {[], state}
   end
+
+  def default_ice_ip_filter(_), do: true
 end
