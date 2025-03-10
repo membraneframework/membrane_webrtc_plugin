@@ -114,7 +114,7 @@ defmodule Membrane.WebRTC.Source do
               ],
               ice_ip_filter: [
                 spec: (:inet.ip_address() -> boolean()) | nil,
-                default: fn _ -> true end
+                default: &__MODULE__.default_ice_ip_filter/1
               ],
               depayload_rtp: [
                 spec: boolean(),
@@ -271,4 +271,6 @@ defmodule Membrane.WebRTC.Source do
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
     })
   end
+
+  def default_ice_ip_filter(_), do: true
 end

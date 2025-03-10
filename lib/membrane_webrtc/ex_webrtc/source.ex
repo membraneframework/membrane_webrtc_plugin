@@ -13,7 +13,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
               preferred_video_codec: [],
               ice_servers: [],
               ice_port_range: [],
-              ice_ip_filter: fn _ -> true end,
+              ice_ip_filter: [],
               keyframe_interval: [],
               sdp_candidates_timeout: []
 
