@@ -11,22 +11,6 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
   """
   @type signaling_id :: String.t()
 
-  @impl true
-  def handle_call({:get_or_create, signaling_id}, _from, state) do
-    signaling =
-      case Registry.lookup(__MODULE__.Registry, signaling_id) do
-        [] ->
-          signaling = Signaling.new()
-          Registry.register(__MODULE__.Registry, signaling_id, signaling)
-          signaling
-
-        [{_pid, signaling}] ->
-          signaling
-      end
-
-    {:reply, signaling, state}
-  end
-
   @spec start(term()) :: GenServer.on_start()
   def start(args) do
     GenServer.start(__MODULE__, args, name: __MODULE__)
@@ -39,8 +23,25 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
 
   @impl true
   def init(_args) do
-    {:ok, _registry_pid} = Registry.start_link(keys: :unique, name: __MODULE__.Registry)
-    {:ok, %{}}
+    {:ok, %{signaling_map: %{}}}
+  end
+
+  @impl true
+  def handle_call({:get_or_create, signaling_id}, _from, state) do
+    case Map.get(state.signaling_map, signaling_id) do
+      nil ->
+        signaling = Signaling.new()
+        state = put_in(state, [:signaling_map, signaling_id], signaling)
+        {:reply, signaling, state}
+
+      signaling ->
+        {:reply, signaling, state}
+    end
+  end
+
+  @impl true
+  def handle_call({:get, signaling_id}, _from, state) do
+    {:reply, Map.get(state.signaling_map, signaling_id), state}
   end
 
   @doc """
@@ -65,7 +66,7 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
   @doc """
   Sends a signal message via the Phoenix Signaling instance associated with given signaling ID.
   """
-  @spec signal(signaling_id(), Signaling.message_content()) :: :ok
+  @spec signal(signaling_id(), Signaling.message_content()) :: :ok | no_return()
   def signal(signaling_id, msg) do
     signaling = get!(signaling_id)
     Signaling.signal(signaling, msg)
@@ -76,7 +77,12 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
   end
 
   defp get!(signaling_id) do
-    [{_pid, signaling}] = Registry.lookup(__MODULE__.Registry, signaling_id)
-    signaling
+    case GenServer.call(__MODULE__, {:get, signaling_id}) do
+      nil ->
+        raise "Couldn't find signaling instance associated with signaling_id: #{inspect(signaling_id)}"
+
+      signaling ->
+        signaling
+    end
   end
 end
