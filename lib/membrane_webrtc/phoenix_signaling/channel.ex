@@ -1,4 +1,5 @@
 defmodule Membrane.WebRTC.PhoenixSignaling.Channel do
+  @moduledoc false
   use Phoenix.Channel
   alias Membrane.WebRTC.PhoenixSignaling
 

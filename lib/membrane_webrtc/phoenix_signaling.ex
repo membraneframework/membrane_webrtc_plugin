@@ -16,7 +16,7 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
     GenServer.start(__MODULE__, args, name: __MODULE__)
   end
 
-  @spec start(term()) :: GenServer.on_start()
+  @spec start_link(term()) :: GenServer.on_start()
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
