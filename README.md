@@ -15,7 +15,7 @@ The package can be installed by adding `membrane_webrtc_plugin` to your list of 
 ```elixir
 def deps do
   [
-    {:membrane_webrtc_plugin, "~> 0.24.0"}
+    {:membrane_webrtc_plugin, "~> 0.25.0"}
   ]
 end
 ```
@@ -23,6 +23,12 @@ end
 ## Usage
 
 The `examples` directory shows how to send and receive streams from a web browser.
+There are following two demos there:
+* `phoenix_signaling` - showcasing simple Phoenix application that uses `Membrane.WebRTC.PhoenixSignaling` to echo stream captured
+from the user's browser and sent via WebRTC. See `assets/phoenix_signaling/README.md` for details on how to run the demo.
+* `webrtc_signaling` - it consists of two scripts: `file_to_browser.exs` and `browser_to_file.exs`. The first one display stream from
+the fixture file in the user's browser. The later one captures user's camera input from the browser and saves it in the file.
+To run one of these demos, type: `elixir <script_name>` and visit `http://localhost:4000`.
 
 ## Copyright and License
 
