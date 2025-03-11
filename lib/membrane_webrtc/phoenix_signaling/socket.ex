@@ -19,7 +19,7 @@ defmodule Membrane.WebRTC.PhoenixSignaling.Socket do
   let socket = new Socket("/singaling", {params: {token: window.userToken}})
   socket.connect()
   let channel = socket.channel('signaling_id')
-  egressChannel.join()
+  channel.join()
     .receive("ok", resp => { console.log("Joined successfully", resp)
       // here you can exchange WebRTC data
     })
