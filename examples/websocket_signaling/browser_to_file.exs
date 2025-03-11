@@ -8,7 +8,7 @@ require Logger
 Logger.configure(level: :info)
 
 Mix.install([
-  {:membrane_webrtc_plugin, path: "#{__DIR__}/.."},
+  {:membrane_webrtc_plugin, path: "#{__DIR__}/../.."},
   :membrane_file_plugin,
   :membrane_realtimer_plugin,
   :membrane_matroska_plugin,
