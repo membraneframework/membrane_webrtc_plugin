@@ -1,8 +1,8 @@
 if Code.ensure_loaded?(Phoenix) do
   defmodule Membrane.WebRTC.PhoenixSignaling.Socket do
     @moduledoc """
-    Phoenix Socket implementation which directs all topics to a Phoenix Channel capable of processing
-    WebRTC signaling messages.
+    Phoenix Socket implementation which redirects all topics to a
+    Phoenix Channel capable of processing WebRTC signaling messages.
 
     To use PhoenixSignaling, you need to:
     1. Create Socket in your application endpoint, for instance:
