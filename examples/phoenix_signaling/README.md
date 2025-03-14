@@ -53,4 +53,4 @@ channel.join()
   .receive("error", resp => { console.log("Unable to join signaling socket", resp) })
 ```
 
-Visit `assets/js/app.js` to see how WebRTC exchange can be done.
+Visit `assets/js/signaling.js` to see how WebRTC exchange might look like.
