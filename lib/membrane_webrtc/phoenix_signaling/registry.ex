@@ -1,5 +1,6 @@
 if Code.ensure_loaded?(Phoenix) do
   defmodule Membrane.WebRTC.PhoenixSignaling.Registry do
+    @moduledoc false
     use GenServer
     alias Membrane.WebRTC.Signaling
 
