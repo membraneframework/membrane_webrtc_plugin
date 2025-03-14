@@ -29,7 +29,7 @@ child(:webrtc_source, %Membrane.WebRTC.Source{signaling: signaling})
 ...
 |> child(:webrtc_sink, %Membrane.WebRTC.Sink{signaling: signaling})
 
-# or with Boombox
+# or with Boombox:
 Boombox.run(
   input: {:webrtc, signaling},
   output: ...

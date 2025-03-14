@@ -11,6 +11,25 @@ if Code.ensure_loaded?(Phoenix) do
       websocket: true,
       longpoll: false
     ```
+    2. Create a Phoenix signaling channel with desired signaling ID and use it as `Membrane.WebRTC.Signaling.t()`
+    for `Membrane.WebRTC.Source`, `Membrane.WebRTC.Sink` or [`Boombox`](https://github.com/membraneframework/boombox):
+    ```
+    signaling = Membrane.WebRTC.PhoenixSignaling.new("<signaling_id>")
+
+    # use it with Membrane.WebRTC.Source:
+    child(:webrtc_source, %Membrane.WebRTC.Source{signaling: signaling})
+    |> ...
+
+    # or with Membrane.WebRTC.Sink:
+    ...
+    |> child(:webrtc_sink, %Membrane.WebRTC.Sink{signaling: signaling})
+
+    # or with Boombox:
+    Boombox.run(
+      input: {:webrtc, signaling},
+      output: ...
+    )
+    ```
     2. Create signaling channel with desired signaling ID:
     ```
       signaling = PhoenixSignaling.new("signaling_id")
