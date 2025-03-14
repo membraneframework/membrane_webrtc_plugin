@@ -1,3 +1,4 @@
+if Code.ensure_loaded?(Phoenix) do
 defmodule Membrane.WebRTC.PhoenixSignaling do
   @moduledoc """
   Provides signaling capabilities for WebRTC connections through Phoenix channels.
@@ -85,4 +86,5 @@ defmodule Membrane.WebRTC.PhoenixSignaling do
         signaling
     end
   end
+end
 end
