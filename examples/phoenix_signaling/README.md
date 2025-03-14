@@ -12,7 +12,7 @@ You should be able to see a video player displaying video captured from your cam
 
 1. Create new socket in your application endpoint, using the `Membrane.WebRTC.PhoenixSignaling.Socket`, for instance at `/signaling` path:
 ```
-  socket "/signaling", Membrane.WebRTC.PhoenixSignaling.Socket,
+socket "/signaling", Membrane.WebRTC.PhoenixSignaling.Socket,
   websocket: true,
   longpoll: false
 ```
