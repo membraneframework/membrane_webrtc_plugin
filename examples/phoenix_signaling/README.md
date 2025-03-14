@@ -21,7 +21,7 @@ You should be able to see a video player displaying video captured from your cam
 signaling = Membrane.WebRTC.PhoenixSignaling.new("<signaling_id>")
 ```
 
->Please note that `signaling_id` is expected to be unique for each WebRTC connection about to be
+>Please note that `signaling_id` is expected to be globally unique for each WebRTC connection about to be
 >estabilished. You can, for instance:
 >1. Generate unique id with `:uuid` package and assign to the connection in the page controller:
 >```
