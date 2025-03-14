@@ -47,10 +47,10 @@ let socket = new Socket("/singaling", {params: {token: window.userToken}})
 socket.connect()
 let channel = socket.channel('<signaling_id>')
 channel.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp)
+  .receive("ok", resp => { console.log("Signaling socket joined successfully", resp)
     // here you can exchange WebRTC data
   })
-  .receive("error", resp => { console.log("Unable to join", resp) })
+  .receive("error", resp => { console.log("Unable to join signaling socket", resp) })
 ```
 
 Visit `assets/js/app.js` to see how WebRTC exchange can be done.
