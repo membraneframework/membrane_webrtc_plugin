@@ -39,11 +39,13 @@ In `membrane_webrtc_plugin` it can be done by the user, by using `Membrane.WebRT
 `Membrane.WebRTC.Source` or `Membrane.WebRTC.Sink`, but there are two additional ways of doing it, deditated to be used within
 `Phoenix` project: 
  - the first one is to use `Membrane.WebRTC.PhoenixSignaling` along with `Membrane.WebRTC.PhoenixSignaling.Socket`
- - the second one is to use LiveView `Membrane.WebRTC.Live.Player` or `Membrane.WebRTC.Live.Capture`. These modules expect
+ - the second one is to use `Phoenix.LiveView` `Membrane.WebRTC.Live.Player` or `Membrane.WebRTC.Live.Capture`. These modules expect
  `t:Membrane.WebRTC.Signaling.t/0` as an argument and take advantage of WebSocket used by `Phoenix.LiveView` to exchange WebRTC 
  signaling messages, so there is no need to add any code to handle singaling messages.
 
 ### How to use Membrane.WebRTC.PhoenixSignaling in your own Phoenix project?
+
+The see the full example, visit `example/phoenix_signaling`.
 
 1. Create new socket in your application endpoint, using the `Membrane.WebRTC.PhoenixSignaling.Socket`, for instance at `/signaling` path:
 ```
@@ -103,10 +105,9 @@ channel.join()
   .receive("error", resp => { console.log("Unable to join signaling socket", resp) })
 ```
 
-Visit `assets/js/signaling.js` to see how WebRTC exchange might look like.
+Visit `examples/phoenix_signlaing/assets/js/signaling.js` to see how WebRTC exchange might look like.
 
-
-## Integrating LiveView with Membrane WebRTC Pluing
+## Integrating Phoenix.LiveView with Membrane WebRTC Pluing
 
 `membrane_webrtc_plugin` comes with two `Phoenix.LiveView`s: 
  - `Membrane.WebRTC.Live.Capture` - exchanges WebRTC signaling messages between `Membrane.WebRTC.Source` and the browser. It 
@@ -141,7 +142,6 @@ new LiveSocket("/live", Socket, {
 ```
 
 To see the full usage example, you can go to `examples/live_view/` directory in this repository (take a look especially at `examples/live_view/assets/js/app.js` and `examples/live_view/lib/example_project_web/live_views/echo.ex`).
-
 
 ## Copyright and License
 
