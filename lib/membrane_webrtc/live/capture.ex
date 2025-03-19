@@ -206,7 +206,7 @@ defmodule Membrane.WebRTC.Live.Capture do
   end
 
   @impl true
-  def handle_info({Signaling, _pid, message, _metadata}, socket) do
+  def handle_info({:membrane_webrtc_signaling, _pid, message, _metadata}, socket) do
     Logger.debug("""
     #{log_prefix(socket.assigns.capture.id)} Sent WebRTC signaling message: #{inspect(message, pretty: true)}
     """)

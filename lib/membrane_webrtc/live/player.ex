@@ -171,7 +171,7 @@ defmodule Membrane.WebRTC.Live.Player do
   end
 
   @impl true
-  def handle_info({Signaling, _pid, message, _metadata}, socket) do
+  def handle_info({:membrane_webrtc_signaling, _pid, message, _metadata}, socket) do
     Logger.debug("""
     #{log_prefix(socket.assigns.player.id)} Sent WebRTC signaling message: #{inspect(message, pretty: true)}
     """)
