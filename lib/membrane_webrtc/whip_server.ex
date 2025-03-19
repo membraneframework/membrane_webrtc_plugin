@@ -219,7 +219,7 @@ defmodule Membrane.WebRTC.WhipServer do
           )
 
           receive do
-            {Signaling, _pid, answer, _metadata} ->
+            {:membrane_webrtc_signaling, _pid, answer, _metadata} ->
               %ExWebRTC.SessionDescription{type: :answer, sdp: answer_sdp} = answer
               {{:ok, answer_sdp}, signaling}
           after

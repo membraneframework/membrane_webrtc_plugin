@@ -39,7 +39,8 @@ defmodule Membrane.WebRTC.WhipClient do
 
   @impl true
   def handle_info(
-        {Signaling, pid, %SessionDescription{type: :offer, sdp: offer_sdp}, _metadata},
+        {:membrane_webrtc_signaling, pid, %SessionDescription{type: :offer, sdp: offer_sdp},
+         _metadata},
         %{signaling: signaling} = state
       )
       when signaling.pid == pid do
@@ -85,7 +86,7 @@ defmodule Membrane.WebRTC.WhipClient do
 
   @impl true
   def handle_info(
-        {Signaling, pid, %ICECandidate{} = candidate, _metadata},
+        {:membrane_webrtc_signaling, pid, %ICECandidate{} = candidate, _metadata},
         %{signaling: signaling} = state
       )
       when signaling.pid == pid do

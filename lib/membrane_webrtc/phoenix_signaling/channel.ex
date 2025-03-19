@@ -19,7 +19,7 @@ if Code.ensure_loaded?(Phoenix) do
     end
 
     @impl true
-    def handle_info({Membrane.WebRTC.Signaling, _pid, msg, _metadata}, socket) do
+    def handle_info({:membrane_webrtc_signaling, _pid, msg, _metadata}, socket) do
       push(socket, socket.assigns.signaling_id, msg)
       {:noreply, socket}
     end

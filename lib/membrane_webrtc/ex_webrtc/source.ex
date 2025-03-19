@@ -210,7 +210,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
 
   @impl true
   def handle_info(
-        {Signaling, _pid, %SessionDescription{type: :offer} = sdp, metadata},
+        {:membrane_webrtc_signaling, _pid, %SessionDescription{type: :offer} = sdp, metadata},
         _ctx,
         state
       ) do
@@ -269,7 +269,11 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   @impl true
-  def handle_info({Signaling, _pid, %ICECandidate{} = candidate, _metadata}, _ctx, state) do
+  def handle_info(
+        {:membrane_webrtc_signaling, _pid, %ICECandidate{} = candidate, _metadata},
+        _ctx,
+        state
+      ) do
     case PeerConnection.add_ice_candidate(state.pc, candidate) do
       :ok ->
         {[], state}
