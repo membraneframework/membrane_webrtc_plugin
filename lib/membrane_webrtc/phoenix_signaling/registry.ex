@@ -3,6 +3,7 @@ if Code.ensure_loaded?(Phoenix) do
     @moduledoc false
     use GenServer
     alias Membrane.WebRTC.Signaling
+    alias Membrane.WebRTC.PhoenixSignaling
 
     @spec start(term()) :: GenServer.on_start()
     def start(args) do
@@ -12,6 +13,27 @@ if Code.ensure_loaded?(Phoenix) do
     @spec start_link(term()) :: GenServer.on_start()
     def start_link(args) do
       GenServer.start_link(__MODULE__, args, name: __MODULE__)
+    end
+
+    @spec get_or_create(PhoenixSignaling.signaling_id()) :: Signaling.t()
+    def get_or_create(signaling_id) do
+      GenServer.call(__MODULE__, {:get_or_create, signaling_id})
+    end
+
+    @spec get(PhoenixSignaling.signaling_id()) :: Signaling.t() | nil
+    def get(signaling_id) do
+      GenServer.call(__MODULE__, {:get, signaling_id})
+    end
+
+    @spec get!(PhoenixSignaling.signaling_id()) :: Signaling.t() | no_return()
+    def get!(signaling_id) do
+      case get(signaling_id) do
+        nil ->
+          raise "Couldn't find signaling instance associated with signaling_id: #{inspect(signaling_id)}"
+
+        signaling ->
+          signaling
+      end
     end
 
     @impl true
