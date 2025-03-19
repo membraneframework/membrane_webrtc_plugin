@@ -48,13 +48,11 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:membrane_rtp_vp8_plugin, "~> 0.9.4"},
       {:membrane_rtp_opus_plugin, "~> 0.10.0"},
       {:membrane_timestamp_queue, "~> 0.2.0"},
-
       {:ex_webrtc, "~> 0.8.0"},
       {:corsica, "~> 2.0"},
       {:bandit, "~> 1.2"},
       {:websock_adapter, "~> 0.5.0"},
       {:req, "~> 0.5"},
-
       {:membrane_matroska_plugin, "~> 0.5.0", only: :test},
       {:membrane_mp4_plugin, "~> 0.35.2", only: :test},
       {:membrane_h26x_plugin, "~> 0.10.2", only: :test},
@@ -63,7 +61,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:membrane_opus_plugin, "~> 0.20.0", only: :test},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
-      {:credo, ">= 0.0.0", only: :dev, runtime: false},
+      {:credo, ">= 0.0.0", only: :dev, runtime: false}
     ]
   end
 

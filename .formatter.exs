@@ -4,5 +4,5 @@
     ".formatter.exs",
     "*.exs"
   ],
-  import_deps: [:membrane_core]
+  import_deps: [:membrane_core, :phoenix]
 ]
