@@ -37,17 +37,24 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
 
   defp deps do
     [
+      # Phoenix
+      {:phoenix, ">= 0.0.0", optional: true},
+      {:phoenix_live_view, "~> 1.0", optional: true},
+
+      # Membrane
       {:membrane_core, "~> 1.1"},
-      {:ex_webrtc, "~> 0.8.0"},
-      {:corsica, "~> 2.0"},
       {:membrane_rtp_plugin, "~> 0.30.0"},
       {:membrane_rtp_h264_plugin, "~> 0.20.1"},
       {:membrane_rtp_vp8_plugin, "~> 0.9.4"},
       {:membrane_rtp_opus_plugin, "~> 0.10.0"},
       {:membrane_timestamp_queue, "~> 0.2.0"},
+
+      {:ex_webrtc, "~> 0.8.0"},
+      {:corsica, "~> 2.0"},
       {:bandit, "~> 1.2"},
       {:websock_adapter, "~> 0.5.0"},
       {:req, "~> 0.5"},
+
       {:membrane_matroska_plugin, "~> 0.5.0", only: :test},
       {:membrane_mp4_plugin, "~> 0.35.2", only: :test},
       {:membrane_h26x_plugin, "~> 0.10.2", only: :test},
@@ -57,7 +64,6 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, ">= 0.0.0", only: :dev, runtime: false},
       {:credo, ">= 0.0.0", only: :dev, runtime: false},
-      {:phoenix, ">= 0.0.0", optional: :dev}
     ]
   end
 
