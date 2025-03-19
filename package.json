@@ -1,0 +1,12 @@
+{
+  "name": "membrane_webrtc_plugin",
+  "version": "0.1.0",
+  "description": "Phoenix Live Components for Membrane WebRTC Plugin",
+  "main": "./assets/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/membraneframework/membrane_webrtc_plugin.git"
+  },
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/membraneframework/membrane_webrtc_plugin"
+}
