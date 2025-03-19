@@ -26,7 +26,7 @@ defmodule Membrane.WebRTC.Signaling do
   @typedoc """
   Messages sent by the signaling channel to the peer.
   """
-  @type message :: {__MODULE__, pid(), message_content, metadata :: map}
+  @type message :: {:membrane_webrtc_signaling, pid(), message_content, metadata :: map}
 
   @typedoc """
   Messages that the peer sends with `signal/2` and receives in `t:message/0`.
@@ -180,7 +180,7 @@ defmodule Membrane.WebRTC.Signaling do
          message,
          metadata
        ) do
-    send(pid, {__MODULE__, self(), message, metadata})
+    send(pid, {:membrane_webrtc_signaling, self(), message, metadata})
   end
 
   defp send_peer(
@@ -198,7 +198,7 @@ defmodule Membrane.WebRTC.Signaling do
           %{"type" => "sdp_#{type}", "data" => SessionDescription.to_json(message)}
       end
 
-    send(pid, {__MODULE__, self(), json_data, metadata})
+    send(pid, {:membrane_webrtc_signaling, self(), json_data, metadata})
   end
 
   defp send_peer(
@@ -214,6 +214,6 @@ defmodule Membrane.WebRTC.Signaling do
         %{"type" => "sdp_answer", "data" => answer} -> SessionDescription.from_json(answer)
       end
 
-    send(pid, {__MODULE__, self(), message, metadata})
+    send(pid, {:membrane_webrtc_signaling, self(), message, metadata})
   end
 end

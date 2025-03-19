@@ -3,8 +3,8 @@ if Code.ensure_loaded?(Phoenix) do
     @moduledoc """
     Provides signaling capabilities for WebRTC connections through Phoenix channels.
     """
-    alias Membrane.WebRTC.Signaling
     alias Membrane.WebRTC.PhoenixSignaling.Registry, as: SignalingRegistry
+    alias Membrane.WebRTC.Signaling
 
     @typedoc """
     A type representing an unique identifier that is used to distinguish between different Phoenix Signaling
