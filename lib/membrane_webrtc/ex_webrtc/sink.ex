@@ -252,7 +252,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @impl true
   def handle_info(
-        {Signaling, _pid, %SessionDescription{type: :offer}, _metadata},
+        {:membrane_webrtc_signaling, _pid, %SessionDescription{type: :offer}, _metadata},
         _ctx,
         _state
       ) do
@@ -261,7 +261,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   @impl true
   def handle_info(
-        {Signaling, _pid, %SessionDescription{type: :answer} = sdp, _metadata},
+        {:membrane_webrtc_signaling, _pid, %SessionDescription{type: :answer} = sdp, _metadata},
         _ctx,
         state
       ) do
@@ -290,7 +290,11 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   @impl true
-  def handle_info({Signaling, _pid, %ICECandidate{} = candidate, _metadata}, _ctx, state) do
+  def handle_info(
+        {:membrane_webrtc_signaling, _pid, %ICECandidate{} = candidate, _metadata},
+        _ctx,
+        state
+      ) do
     :ok = PeerConnection.add_ice_candidate(state.pc, candidate)
     {[], state}
   end
