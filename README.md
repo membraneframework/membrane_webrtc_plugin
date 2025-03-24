@@ -34,7 +34,7 @@ To run one of these demos, type: `elixir <script_name>` and visit `http://localh
 
 ## Exchanging Signaling Messages
 
-To establish WebRTC connection you have to exchange WebRTC singlaing messages between peers. 
+To establish WebRTC connection you have to exchange WebRTC signaling messages between peers. 
 In `membrane_webrtc_plugin` it can be done by the user, by using `Membrane.WebRTC.Signaling` or by passing WebSocket address to 
 `Membrane.WebRTC.Source` or `Membrane.WebRTC.Sink`, but there are two additional ways of doing it, deditated to be used within
 `Phoenix` project: 
