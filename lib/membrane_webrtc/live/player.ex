@@ -1,7 +1,7 @@
 if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
   defmodule Membrane.WebRTC.Live.Player do
     @moduledoc ~S'''
-    LiveView for playing audio and video get via WebRTC from `Membrane.WebRTC.Sink`.
+    LiveView for playing audio and video received via WebRTC from `Membrane.WebRTC.Sink`.
 
     It:
     * renders a single HTMLVideoElement.
