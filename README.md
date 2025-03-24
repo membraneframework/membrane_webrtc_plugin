@@ -24,7 +24,7 @@ end
 
 The `examples` directory shows how to send and receive streams from a web browser.
 There are following three demos there:
-* `live_view` - simple Phoenix project using `Membrane.WebRTC.Live.Player` and `Membrane.WebRTC.Live.Capture` to echo video stream
+* `live_view` - simple Phoenix LiveView project using `Membrane.WebRTC.Live.Player` and `Membrane.WebRTC.Live.Capture` to echo video stream
 captured from the user's browser.
 * `phoenix_signaling` - showcasing simple Phoenix application that uses `Membrane.WebRTC.PhoenixSignaling` to echo stream captured
 from the user's browser and sent via WebRTC. See `assets/phoenix_signaling/README.md` for details on how to run the demo.
