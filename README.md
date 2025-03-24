@@ -105,7 +105,7 @@ channel.join()
   .receive("error", resp => { console.log("Unable to join signaling socket", resp) })
 ```
 
-Visit `examples/phoenix_signaling/assets/js/signaling.js` to see how WebRTC exchange might look like.
+Visit `examples/phoenix_signaling/assets/js/signaling.js` to see how WebRTC signaling messages exchange might look like.
 
 ## Integrating Phoenix.LiveView with Membrane WebRTC Plugin
 
