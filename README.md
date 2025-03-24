@@ -23,37 +23,37 @@ end
 ## Demos
 
 The `examples` directory shows how to send and receive streams from a web browser.
-There are following three demos there:
-* `live_view` - simple Phoenix LiveView project using `Membrane.WebRTC.Live.Player` and `Membrane.WebRTC.Live.Capture` to echo video stream
+There are the following three demos:
+* `live_view` - a simple Phoenix LiveView project using `Membrane.WebRTC.Live.Player` and `Membrane.WebRTC.Live.Capture` to echo video stream
 captured from the user's browser.
 * `phoenix_signaling` - showcasing simple Phoenix application that uses `Membrane.WebRTC.PhoenixSignaling` to echo stream captured
 from the user's browser and sent via WebRTC. See `assets/phoenix_signaling/README.md` for details on how to run the demo.
-* `webrtc_signaling` - it consists of two scripts: `file_to_browser.exs` and `browser_to_file.exs`. The first one display stream from
-the fixture file in the user's browser. The later one captures user's camera input from the browser and saves it in the file.
+* `webrtc_signaling` - it consists of two scripts: `file_to_browser.exs` and `browser_to_file.exs`. The first one displays the stream from
+the fixture file in the user's browser. The latter captures the user's camera input from the browser and saves it in the file.
 To run one of these demos, type: `elixir <script_name>` and visit `http://localhost:4000`.
 
 ## Exchanging Signaling Messages
 
-To establish WebRTC connection you have to exchange WebRTC signaling messages between peers. 
+To establish a WebRTC connection you have to exchange WebRTC signaling messages between peers. 
 In `membrane_webrtc_plugin` it can be done by the user, with `Membrane.WebRTC.Signaling` or by passing WebSocket address to 
-`Membrane.WebRTC.Source` or `Membrane.WebRTC.Sink`, but there are two additional ways of doing it, deditated to be used within
-`Phoenix` project: 
- - the first one is to use `Membrane.WebRTC.PhoenixSignaling` along with `Membrane.WebRTC.PhoenixSignaling.Socket`
- - the second one is to use `Phoenix.LiveView` `Membrane.WebRTC.Live.Player` or `Membrane.WebRTC.Live.Capture`. These modules expect
+`Membrane.WebRTC.Source` or `Membrane.WebRTC.Sink`, but there are two additional ways of doing it, dedicated to be used within
+`Phoenix` projects:
+ - The first one is to use `Membrane.WebRTC.PhoenixSignaling` along with `Membrane.WebRTC.PhoenixSignaling.Socket`
+ - The second one is to use `Phoenix.LiveView` `Membrane.WebRTC.Live.Player` or `Membrane.WebRTC.Live.Capture`. These modules expect
  `t:Membrane.WebRTC.Signaling.t/0` as an argument and take advantage of WebSocket used by `Phoenix.LiveView` to exchange WebRTC 
- signaling messages, so there is no need to add any code to handle singaling messages.
+ signaling messages, so there is no need to add any code to handle signaling messages.
 
 ### How to use Membrane.WebRTC.PhoenixSignaling in your own Phoenix project?
 
 The see the full example, visit `example/phoenix_signaling`.
 
-1. Create new socket in your application endpoint, using the `Membrane.WebRTC.PhoenixSignaling.Socket`, for instance at `/signaling` path:
+1. Create a new socket in your application endpoint, using the `Membrane.WebRTC.PhoenixSignaling.Socket`, for instance at `/signaling` path:
 ```
 socket "/signaling", Membrane.WebRTC.PhoenixSignaling.Socket,
   websocket: true,
   longpoll: false
 ```
-2. Create a Phoenix signaling channel with desired signaling ID and use it as `Membrane.WebRTC.Signaling.t()`
+2. Create a Phoenix signaling channel with the desired signaling ID and use it as `Membrane.WebRTC.Signaling.t()`
 for `Membrane.WebRTC.Source`, `Membrane.WebRTC.Sink` or [`Boombox`](https://github.com/membraneframework/boombox):
 ```
 signaling = Membrane.WebRTC.PhoenixSignaling.new("<signaling_id>")
@@ -75,7 +75,7 @@ Boombox.run(
 
 >Please note that `signaling_id` is expected to be globally unique for each WebRTC connection about to be
 >estabilished. You can, for instance:
->1. Generate unique id with `:uuid` package and assign to the connection in the page controller:
+>1. Generate a unique id with `:uuid` package and assign it to the connection in the page controller:
 >```
 >unique_id = UUID.uuid4()
 >render(conn, :home, layout: false, signaling_id: unique_id)
@@ -95,7 +95,7 @@ Boombox.run(
 
 3. Use the Phoenix Socket to exchange WebRTC signaling data.
 ```
-let socket = new Socket("/singaling", {params: {token: window.userToken}})
+let socket = new Socket("/signaling", {params: {token: window.userToken}})
 socket.connect()
 let channel = socket.channel('<signaling_id>')
 channel.join()
@@ -132,7 +132,7 @@ Hooks.Capture = createCaptureHook(iceServers);
 Hooks.Player = createPlayerHook(iceServers);
 ```
 
-and add `Hooks` to the WebSocket constructor. It can be done in a following way:
+and add `Hooks` to the WebSocket constructor. It can be done in the following way:
 
 ```js
 new LiveSocket("/live", Socket, {
