@@ -11,7 +11,7 @@ This demo uses also [Boombox](https://hex.pm/packages/boombox).
 The most important file in the project is `example_project/lib/example_project_web/live_views/echo.ex`, that 
 contains the usage of `Boombox` and  LiveViews defined in `membrane_webrtc_plugin` package.
 
-You can also take a look at `example_project/assets/js/app.js` to see how you can use JS hooks from `membrane_webrtc_plugin`.
+You can also take a look at `live_view/assets/js/app.js` to see how you can use JS hooks from `membrane_webrtc_plugin`.
 
 ## Run server
 
