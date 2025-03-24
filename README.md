@@ -107,7 +107,7 @@ channel.join()
 
 Visit `examples/phoenix_signaling/assets/js/signaling.js` to see how WebRTC exchange might look like.
 
-## Integrating Phoenix.LiveView with Membrane WebRTC Pluing
+## Integrating Phoenix.LiveView with Membrane WebRTC Plugin
 
 `membrane_webrtc_plugin` comes with two `Phoenix.LiveView`s: 
  - `Membrane.WebRTC.Live.Capture` - exchanges WebRTC signaling messages between `Membrane.WebRTC.Source` and the browser. It 
