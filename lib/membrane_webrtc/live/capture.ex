@@ -95,7 +95,7 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
 
     Options:
     * `id` - capture id. It is used to identify live view and generated HTML video player. It must be unique
-    withing single page.
+    within single page.
     * `signaling` - `Membrane.WebRTC.Signaling.t()`, that has been passed to `Membrane.WebRTC.Source` as well.
     * `video?` - if `true`, the video stream from the computer camera will be captured. Defaults to `true`.
     * `audio?` - if `true`, the audio stream from the computer mic will be captured. Defaults to `true`.
