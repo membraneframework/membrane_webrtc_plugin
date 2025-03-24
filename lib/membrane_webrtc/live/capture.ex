@@ -98,7 +98,7 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
     within single page.
     * `signaling` - `Membrane.WebRTC.Signaling.t()`, that has been passed to `Membrane.WebRTC.Source` as well.
     * `video?` - if `true`, the video stream from the computer camera will be captured. Defaults to `true`.
-    * `audio?` - if `true`, the audio stream from the computer mic will be captured. Defaults to `true`.
+    * `audio?` - if `true`, the audio stream from the computer microphone will be captured. Defaults to `true`.
     * `preview?` - if `true`, the function `#{inspect(__MODULE__)}.live_render/1` return a video HTML tag
     with attached captured video stream. Defaults to `true`.
     """
