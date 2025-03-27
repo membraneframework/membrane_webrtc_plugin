@@ -21,7 +21,6 @@ defmodule Membrane.WebRTC.Source do
   alias Membrane.WebRTC.{
     ExWebRTCSource,
     ExWebRTCUtils,
-    ForwardingFilter,
     Signaling,
     SimpleWebSocketServer
   }
@@ -176,8 +175,8 @@ defmodule Membrane.WebRTC.Source do
           spec =
             [
               spec
-              |> child({:first_ff, pad_ref}, ForwardingFilter),
-              child({:second_ff, pad_ref}, ForwardingFilter)
+              |> child({:input_connector, pad_ref}, Membrane.Connector),
+              child({:output_connector, pad_ref}, Membrane.Connector)
               |> bin_output(pad_ref)
             ]
 
@@ -205,9 +204,9 @@ defmodule Membrane.WebRTC.Source do
     spec =
       state.awaiting_pads
       |> Enum.map(fn pad_ref ->
-        get_child({:first_ff, pad_ref})
+        get_child({:input_connector, pad_ref})
         |> get_depayloader(:video, state)
-        |> get_child({:second_ff, pad_ref})
+        |> get_child({:output_connector, pad_ref})
       end)
 
     state = %{state | awaiting_pads: MapSet.new()}
