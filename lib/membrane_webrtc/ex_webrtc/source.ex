@@ -12,6 +12,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
               allowed_video_codecs: [],
               preferred_video_codec: [],
               ice_servers: [],
+              ice_port_range: [],
+              ice_ip_filter: [],
               keyframe_interval: [],
               sdp_candidates_timeout: []
 
@@ -43,6 +45,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             allowed_video_codecs: [:h264 | :vp8],
             preferred_video_codec: :h264 | :vp8,
             ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
+            ice_port_range: Enumerable.t(non_neg_integer()),
+            ice_ip_filter: (:inet.ip_address() -> boolean()),
             keyframe_interval: Membrane.Time.t() | nil,
             sdp_candidates_timeout: Membrane.Time.t() | nil
           }
@@ -53,6 +57,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
       :allowed_video_codecs,
       :preferred_video_codec,
       :ice_servers,
+      :ice_port_range,
+      :ice_ip_filter,
       :keyframe_interval,
       :sdp_candidates_timeout
     ]
@@ -78,6 +84,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        allowed_video_codecs: opts.allowed_video_codecs |> Enum.uniq(),
        preferred_video_codec: opts.preferred_video_codec,
        ice_servers: opts.ice_servers,
+       ice_port_range: opts.ice_port_range,
+       ice_ip_filter: opts.ice_ip_filter,
        keyframe_interval: opts.keyframe_interval,
        sdp_candidates_timeout: opts.sdp_candidates_timeout
      }}
@@ -325,6 +333,8 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     {:ok, pc} =
       PeerConnection.start(
         ice_servers: state.ice_servers,
+        ice_port_range: state.ice_port_range,
+        ice_ip_filter: state.ice_ip_filter,
         video_codecs: video_params,
         audio_codecs: state.audio_params
       )
