@@ -16,7 +16,12 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
 
   alias Membrane.WebRTC.{ExWebRTCUtils, Signaling, SimpleWebSocketServer}
 
-  def_options signaling: [], tracks: [], video_codec: [], ice_servers: [], ice_port_range: [], ice_ip_filter: []
+  def_options signaling: [],
+              tracks: [],
+              video_codec: [],
+              ice_servers: [],
+              ice_port_range: [],
+              ice_ip_filter: []
 
   def_input_pad :input,
     accepted_format: Membrane.RTP,
