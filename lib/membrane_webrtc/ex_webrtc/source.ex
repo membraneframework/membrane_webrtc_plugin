@@ -46,7 +46,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             preferred_video_codec: :h264 | :vp8,
             ice_servers: [ExWebRTC.PeerConnection.Configuration.ice_server()],
             ice_port_range: Enumerable.t(non_neg_integer()),
-            ice_ip_filter: (:inet.ip_address() -> boolean()) | nil,
+            ice_ip_filter: (:inet.ip_address() -> boolean()),
             keyframe_interval: Membrane.Time.t() | nil,
             sdp_candidates_timeout: Membrane.Time.t() | nil
           }
