@@ -20,7 +20,7 @@ defmodule Membrane.WebRTC.Sink do
   alias Membrane.H264
   alias Membrane.RemoteStream
   alias Membrane.VP8
-  alias Membrane.WebRTC.{ExWebRTCSink, ForwardingFilter, Signaling, SimpleWebSocketServer}
+  alias Membrane.WebRTC.{ExWebRTCSink, Signaling, SimpleWebSocketServer}
 
   @typedoc """
   Notification that should be sent to the bin to negotiate new tracks.
@@ -158,7 +158,7 @@ defmodule Membrane.WebRTC.Sink do
 
         kind == :video ->
           bin_input(pad_ref)
-          |> child({:forwarding_filter, pad_ref}, ForwardingFilter)
+          |> child({:connector, pad_ref}, %Membrane.Connector{notify_on_stream_format?: true})
       end
 
     {[spec: spec], state}
@@ -166,8 +166,8 @@ defmodule Membrane.WebRTC.Sink do
 
   @impl true
   def handle_child_notification(
-        {:stream_format, _stream_format},
-        {:forwarding_filter, pad_ref},
+        {:stream_format, _connector_pad, _stream_format},
+        {:connector, pad_ref},
         ctx,
         state
       )
@@ -177,8 +177,8 @@ defmodule Membrane.WebRTC.Sink do
 
   @impl true
   def handle_child_notification(
-        {:stream_format, stream_format},
-        {:forwarding_filter, pad_ref},
+        {:stream_format, _connector_pad, stream_format},
+        {:connector, pad_ref},
         _ctx,
         state
       ) do
@@ -196,7 +196,7 @@ defmodule Membrane.WebRTC.Sink do
       end
 
     spec =
-      get_child({:forwarding_filter, pad_ref})
+      get_child({:connector, pad_ref})
       |> child({:rtp_payloader, pad_ref}, payloader)
       |> via_in(pad_ref, options: [kind: :video, codec: codec])
       |> get_child(:webrtc)
