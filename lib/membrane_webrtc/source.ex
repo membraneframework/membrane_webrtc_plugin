@@ -272,5 +272,5 @@ defmodule Membrane.WebRTC.Source do
     })
   end
 
-  def default_ice_ip_filter(_), do: true
+  def default_ice_ip_filter(_ip), do: true
 end
