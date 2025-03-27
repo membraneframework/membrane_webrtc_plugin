@@ -113,7 +113,7 @@ defmodule Membrane.WebRTC.Source do
                 default: [0]
               ],
               ice_ip_filter: [
-                spec: (:inet.ip_address() -> boolean()) | nil,
+                spec: (:inet.ip_address() -> boolean()),
                 default: &__MODULE__.default_ice_ip_filter/1
               ],
               depayload_rtp: [
