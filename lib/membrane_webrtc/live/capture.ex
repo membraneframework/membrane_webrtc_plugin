@@ -3,6 +3,9 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
     @moduledoc ~S'''
     LiveView for capturing audio and video from a browser and sending it via WebRTC to `Membrane.WebRTC.Source`.
 
+    *Note:* This module will be available in your code only if you add `{:phoenix, "~> 1.7"}`
+    and `{:phoenix_live_view, "~> 1.0"}` to the dependencies of of your root project.
+
     It:
     * creates WebRTC PeerConnection on the browser side.
     * forwards signaling messages between the browser and `Membrane.WebRTC.Source` via `Membrane.WebRTC.Signaling`.

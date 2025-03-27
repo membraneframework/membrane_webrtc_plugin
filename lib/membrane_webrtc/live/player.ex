@@ -3,6 +3,9 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
     @moduledoc ~S'''
     LiveView for playing audio and video received via WebRTC from `Membrane.WebRTC.Sink`.
 
+    *Note:* This module will be available in your code only if you add `{:phoenix, "~> 1.7"}`
+    and `{:phoenix_live_view, "~> 1.0"}` to the dependencies of of your root project.
+
     It:
     * renders a single HTMLVideoElement.
     * creates WebRTC PeerConnection on the browser side.
