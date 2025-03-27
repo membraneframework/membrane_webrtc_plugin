@@ -4,6 +4,9 @@ if Code.ensure_loaded?(Phoenix) do
     Phoenix Socket implementation which redirects all topics to a
     Phoenix Channel capable of processing WebRTC signaling messages.
 
+    *Note:* This module will be available in your code only if you add `:phoenix`
+    to the dependencies of of your root project.
+
     To use PhoenixSignaling, you need to:
     1. Create Socket in your application endpoint, for instance:
     ```
