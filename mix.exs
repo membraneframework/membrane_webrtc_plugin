@@ -1,7 +1,7 @@
 defmodule Membrane.WebRTC.Plugin.Mixfile do
   use Mix.Project
 
-  @version "0.25.1"
+  @version "0.25.2"
   @github_url "https://github.com/membraneframework/membrane_webrtc_plugin"
 
   def project do
@@ -82,6 +82,7 @@ defmodule Membrane.WebRTC.Plugin.Mixfile do
   defp package do
     [
       maintainers: ["Membrane Team"],
+      files: ~w(mix.exs lib assets package.json README.md LICENSE),
       licenses: ["Apache-2.0"],
       links: %{
         "GitHub" => @github_url,
