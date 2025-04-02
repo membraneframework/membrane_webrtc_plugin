@@ -32,7 +32,7 @@ export function createPlayerHook(iceServers = [{ urls: `stun:stun.l.google.com:1
 
             break;
           case `ice_candidate`:
-            console.log(`[${this.el.id}] Recieved ICE candidate:`, data);
+            console.log(`[${this.el.id}] Received ICE candidate:`, data);
             await this.pc.addIceCandidate(data);
         }
       });

@@ -197,8 +197,8 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
           |> Signaling.register_peer(message_format: :json_data)
 
           media_constraints = %{
-            "audio" => inspect(capture.audio?),
-            "video" => inspect(capture.video?)
+            "audio" => capture.audio?,
+            "video" => capture.video?
           }
 
           socket

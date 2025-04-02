@@ -40,7 +40,7 @@ export function createCaptureHook(iceServers = [{ urls: `stun:stun.l.google.com:
               await this.pc.setRemoteDescription(data);
               break;
             case `ice_candidate`:
-              console.log(`[${this.el.id}] Recieved ICE candidate:`, data);
+              console.log(`[${this.el.id}] Received ICE candidate:`, data);
               await this.pc.addIceCandidate(data);
               break;
           }
