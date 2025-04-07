@@ -1,13 +1,13 @@
-defmodule ExampleProjectWeb.Endpoint do
-  use Phoenix.Endpoint, otp_app: :example_project
+defmodule WebrtcLiveViewWeb.Endpoint do
+  use Phoenix.Endpoint, otp_app: :webrtc_live_view
 
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
   @session_options [
     store: :cookie,
-    key: "_example_project_key",
-    signing_salt: "wOcy44Jq",
+    key: "_webrtc_live_view_key",
+    signing_salt: "RxBv85K8",
     same_site: "Lax"
   ]
 
@@ -21,9 +21,9 @@ defmodule ExampleProjectWeb.Endpoint do
   # when deploying your static files in production.
   plug Plug.Static,
     at: "/",
-    from: :example_project,
+    from: :webrtc_live_view,
     gzip: false,
-    only: ExampleProjectWeb.static_paths()
+    only: WebrtcLiveViewWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the
   # :code_reloader configuration of your endpoint.
@@ -33,7 +33,12 @@ defmodule ExampleProjectWeb.Endpoint do
     plug Phoenix.CodeReloader
   end
 
+  plug Phoenix.LiveDashboard.RequestLogger,
+    param_key: "request_logger",
+    cookie_key: "request_logger"
+
   plug Plug.RequestId
+  plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
@@ -43,5 +48,5 @@ defmodule ExampleProjectWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
-  plug ExampleProjectWeb.Router
+  plug WebrtcLiveViewWeb.Router
 end
