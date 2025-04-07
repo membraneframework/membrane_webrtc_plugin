@@ -19,8 +19,7 @@ defmodule WebrtcLiveViewWeb.Live.EchoLive do
           id: "mediaCapture",
           signaling: ingress_signaling,
           video?: true,
-          audio?: false,
-          preview?: false
+          audio?: false
         )
         |> Player.attach(
           id: "videoPlayer",
@@ -35,7 +34,9 @@ defmodule WebrtcLiveViewWeb.Live.EchoLive do
 
   def render(assigns) do
     ~H"""
+    <h3>Captured stream preview</h3>
     <Capture.live_render socket={@socket} capture_id="mediaCapture" />
+    <h3>Stream sent by the server</h3>
     <Player.live_render socket={@socket} player_id="videoPlayer" />
     """
   end
