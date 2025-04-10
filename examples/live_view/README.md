@@ -6,16 +6,11 @@ It contains a simple demo, where:
  - the video stream is get from the browser and sent via WebRTC to Elixir server using `Membrane.WebRTC.Live.Capture`
  - then, this same video stream is re-sent again to the browser and displayed using `Membrane.WebRTC.Live.Player`.
 
-This demo uses also [Boombox](https://hex.pm/packages/boombox).
+Usage of Phoenix LiveViews dedicated for Membrane WebRTC takes place in `lib/webrtc_live_view_web/live/home.ex`.
 
-The most important file in the project is `live_view/lib/example_project_web/live/echo.ex`, that 
-contains the usage of `Boombox` and  LiveViews defined in `membrane_webrtc_plugin` package.
+## Running the demo
 
-You can also take a look at `live_view/assets/js/app.js` to see how you can use JS hooks from `membrane_webrtc_plugin`.
-
-## Run server
-
-To start Phoenix server:
+To run the demo, you'll need to have [Elixir installed](https://elixir-lang.org/install.html). Then, do the following:
 
   * Run `mix setup` to install and setup dependencies
   * Start Phoenix with `mix phx.server` or inside IEx with `iex -S mix phx.server`

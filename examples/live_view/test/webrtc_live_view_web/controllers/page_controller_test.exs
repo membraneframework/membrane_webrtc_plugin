@@ -1,5 +1,5 @@
-defmodule ExampleProjectWeb.PageControllerTest do
-  use ExampleProjectWeb.ConnCase
+defmodule WebrtcLiveViewWeb.PageControllerTest do
+  use WebrtcLiveViewWeb.ConnCase
 
   test "GET /", %{conn: conn} do
     conn = get(conn, ~p"/")

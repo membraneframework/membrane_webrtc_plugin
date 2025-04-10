@@ -6,16 +6,16 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-# Binding to loopback ipv4 address prevents access from other machines.
-config :example_project, ExampleProjectWeb.Endpoint,
+config :webrtc_live_view, WebrtcLiveViewWeb.Endpoint,
+  # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {127, 0, 0, 1}, port: 4000],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "q5zn/L1BnrCev7xxgSkgCgilInhLIiGMGh8IjH6roOgrxsTJ7hJIvIH/IY2lHe3y",
+  secret_key_base: "hvkMsB0coySlkK38GdeYwpOMBEFJFmK/ogj8SD791OFVAxlk89y1fOGkumXlYgIH",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:example_project, ~w(--sourcemap=inline --watch)]}
+    esbuild: {Esbuild, :install_and_run, [:webrtc_live_view, ~w(--sourcemap=inline --watch)]}
   ]
 
 # ## SSL Support
@@ -42,17 +42,16 @@ config :example_project, ExampleProjectWeb.Endpoint,
 # different ports.
 
 # Watch static and templates for browser reloading.
-config :example_project, ExampleProjectWeb.Endpoint,
+config :webrtc_live_view, WebrtcLiveViewWeb.Endpoint,
   live_reload: [
     patterns: [
       ~r"priv/static/(?!uploads/).*(js|css|png|jpeg|jpg|gif|svg)$",
-      ~r"priv/gettext/.*(po)$",
-      ~r"lib/example_project_web/(controllers|live|components)/.*(ex|heex)$"
+      ~r"lib/webrtc_live_view_web/(controllers|live|components)/.*(ex|heex)$"
     ]
   ]
 
 # Enable dev routes for dashboard and mailbox
-config :example_project, dev_routes: true
+config :webrtc_live_view, dev_routes: true
 
 # Do not include metadata nor timestamps in development logs
 config :logger, :console, format: "[$level] $message\n"

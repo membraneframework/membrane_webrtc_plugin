@@ -1,5 +1,6 @@
-defmodule ExampleProjectWeb.Live.EchoLive do
-  use ExampleProjectWeb, :live_view
+defmodule WebrtcLiveViewWeb.Live.EchoLive do
+  use WebrtcLiveViewWeb, :live_view
+
   alias Membrane.WebRTC.Live.{Capture, Player}
 
   def mount(_params, _session, socket) do
@@ -8,20 +9,17 @@ defmodule ExampleProjectWeb.Live.EchoLive do
         ingress_signaling = Membrane.WebRTC.Signaling.new()
         egress_signaling = Membrane.WebRTC.Signaling.new()
 
-        {:ok, _task_pid} =
-          Task.start_link(fn ->
-            Boombox.run(
-              input: {:webrtc, ingress_signaling},
-              output: {:webrtc, egress_signaling}
-            )
-          end)
+        Membrane.Pipeline.start_link(WebRTCLiveView.Pipeline,
+          ingress_signaling: ingress_signaling,
+          egress_signaling: egress_signaling
+        )
 
         socket
         |> Capture.attach(
           id: "mediaCapture",
           signaling: ingress_signaling,
-          audio?: false,
-          video?: true
+          video?: true,
+          audio?: false
         )
         |> Player.attach(
           id: "videoPlayer",
@@ -38,7 +36,6 @@ defmodule ExampleProjectWeb.Live.EchoLive do
     ~H"""
     <h3>Captured stream preview</h3>
     <Capture.live_render socket={@socket} capture_id="mediaCapture" />
-
     <h3>Stream sent by the server</h3>
     <Player.live_render socket={@socket} player_id="videoPlayer" />
     """

@@ -7,24 +7,24 @@
 # General application configuration
 import Config
 
-config :example_project,
+config :webrtc_live_view,
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
-config :example_project, ExampleProjectWeb.Endpoint,
+config :webrtc_live_view, WebrtcLiveViewWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: ExampleProjectWeb.ErrorHTML, json: ExampleProjectWeb.ErrorJSON],
+    formats: [html: WebrtcLiveViewWeb.ErrorHTML, json: WebrtcLiveViewWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: ExampleProject.PubSub,
-  live_view: [signing_salt: "+TWYHjZu"]
+  pubsub_server: WebrtcLiveView.PubSub,
+  live_view: [signing_salt: "X97dFT34"]
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.17.11",
-  example_project: [
+  webrtc_live_view: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),

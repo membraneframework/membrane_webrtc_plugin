@@ -1,6 +1,6 @@
-defmodule ExampleProject do
+defmodule WebrtcLiveView do
   @moduledoc """
-  ExampleProject keeps the contexts that define your domain
+  WebrtcLiveView keeps the contexts that define your domain
   and business logic.
 
   Contexts are also responsible for managing your data, regardless

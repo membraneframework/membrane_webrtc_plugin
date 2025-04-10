@@ -1,12 +1,12 @@
-defmodule ExampleProjectWeb do
+defmodule WebrtcLiveViewWeb do
   @moduledoc """
   The entrypoint for defining your web interface, such
   as controllers, components, channels, and so on.
 
   This can be used in your application as:
 
-      use ExampleProjectWeb, :controller
-      use ExampleProjectWeb, :html
+      use WebrtcLiveViewWeb, :controller
+      use WebrtcLiveViewWeb, :html
 
   The definitions below will be executed for every controller,
   component, etc, so keep them short and clean, focused
@@ -40,9 +40,7 @@ defmodule ExampleProjectWeb do
     quote do
       use Phoenix.Controller,
         formats: [:html, :json],
-        layouts: [html: ExampleProjectWeb.Layouts]
-
-      use Gettext, backend: ExampleProjectWeb.Gettext
+        layouts: [html: WebrtcLiveViewWeb.Layouts]
 
       import Plug.Conn
 
@@ -53,7 +51,7 @@ defmodule ExampleProjectWeb do
   def live_view do
     quote do
       use Phoenix.LiveView,
-        layout: {ExampleProjectWeb.Layouts, :app}
+        layout: {WebrtcLiveViewWeb.Layouts, :app}
 
       unquote(html_helpers())
     end
@@ -82,12 +80,10 @@ defmodule ExampleProjectWeb do
 
   defp html_helpers do
     quote do
-      # Translation
-      use Gettext, backend: ExampleProjectWeb.Gettext
-
       # HTML escaping functionality
       import Phoenix.HTML
       # Core UI components
+      import WebrtcLiveViewWeb.CoreComponents
 
       # Shortcut for generating JS commands
       alias Phoenix.LiveView.JS
@@ -100,9 +96,9 @@ defmodule ExampleProjectWeb do
   def verified_routes do
     quote do
       use Phoenix.VerifiedRoutes,
-        endpoint: ExampleProjectWeb.Endpoint,
-        router: ExampleProjectWeb.Router,
-        statics: ExampleProjectWeb.static_paths()
+        endpoint: WebrtcLiveViewWeb.Endpoint,
+        router: WebrtcLiveViewWeb.Router,
+        statics: WebrtcLiveViewWeb.static_paths()
     end
   end
 

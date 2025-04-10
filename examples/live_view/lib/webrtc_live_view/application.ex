@@ -1,4 +1,4 @@
-defmodule ExampleProject.Application do
+defmodule WebrtcLiveView.Application do
   # See https://hexdocs.pm/elixir/Application.html
   # for more information on OTP Applications
   @moduledoc false
@@ -8,17 +8,18 @@ defmodule ExampleProject.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      {DNSCluster, query: Application.get_env(:example_project, :dns_cluster_query) || :ignore},
-      {Phoenix.PubSub, name: ExampleProject.PubSub},
-      # Start a worker by calling: ExampleProject.Worker.start_link(arg)
-      # {ExampleProject.Worker, arg},
+      WebrtcLiveViewWeb.Telemetry,
+      {DNSCluster, query: Application.get_env(:webrtc_live_view, :dns_cluster_query) || :ignore},
+      {Phoenix.PubSub, name: WebrtcLiveView.PubSub},
+      # Start a worker by calling: WebrtcLiveView.Worker.start_link(arg)
+      # {WebrtcLiveView.Worker, arg},
       # Start to serve requests, typically the last entry
-      ExampleProjectWeb.Endpoint
+      WebrtcLiveViewWeb.Endpoint
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
-    opts = [strategy: :one_for_one, name: ExampleProject.Supervisor]
+    opts = [strategy: :one_for_one, name: WebrtcLiveView.Supervisor]
     Supervisor.start_link(children, opts)
   end
 
@@ -26,7 +27,7 @@ defmodule ExampleProject.Application do
   # whenever the application is updated.
   @impl true
   def config_change(changed, _new, removed) do
-    ExampleProjectWeb.Endpoint.config_change(changed, removed)
+    WebrtcLiveViewWeb.Endpoint.config_change(changed, removed)
     :ok
   end
 end

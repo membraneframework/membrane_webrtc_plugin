@@ -2,9 +2,9 @@ import Config
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :example_project, ExampleProjectWeb.Endpoint,
+config :webrtc_live_view, WebrtcLiveViewWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
-  secret_key_base: "NOw9umqMS7gzFHxbPLvAI2Z9f/2iAOmS54sZ/bpjElo+WynkIdf1SeGWKuNJvT3p",
+  secret_key_base: "IMaoMRytJjFhXafOgZQyn2pDxQ6CR3WFaCf7srkc0hfwu8GkAPUEsLHyPmZQzks8",
   server: false
 
 # Print only warnings and errors during test
