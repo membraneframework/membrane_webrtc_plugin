@@ -38,7 +38,10 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
             output_tracks: %{(pad_id :: term()) => output_track()},
             awaiting_outputs: [{:video | :audio, Membrane.Pad.ref()}],
             awaiting_candidates: [ExWebRTC.ICECandidate.t()],
-            signaling: Signaling.t() | {:websocket, SimpleWebSocketServer.options()},
+            signaling:
+              Signaling.t()
+              | {:websocket, SimpleWebSocketServer.options()}
+              | {:whip, Membrane.WebRTC.Source.whip_options()},
             status: :init | :connecting | :connected | :closed,
             audio_params: [ExWebRTC.RTPCodecParameters.t()],
             video_params: [ExWebRTC.RTPCodecParameters.t()],
@@ -304,6 +307,10 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         ctx,
         %{signaling: %{pid: signaling_pid}} = state
       ) do
+    if state.pc != nil do
+      PeerConnection.stop(state.pc)
+    end
+
     handle_close(ctx, state)
   end
 
