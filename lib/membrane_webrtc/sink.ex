@@ -103,6 +103,7 @@ defmodule Membrane.WebRTC.Sink do
       any_of(
         %Membrane.H264{alignment: :nalu},
         %Membrane.RemoteStream{content_format: Membrane.VP8},
+        %Membrane.RemoteStream{content_format: Membrane.RTP},
         Membrane.VP8,
         Membrane.Opus,
         Membrane.RTP
@@ -187,21 +188,28 @@ defmodule Membrane.WebRTC.Sink do
         %H264{} -> :h264
         %VP8{} -> :vp8
         %RemoteStream{content_format: VP8} -> :vp8
+        %RemoteStream{content_format: Membrane.RTP} -> nil
       end
 
-    payloader =
-      case codec do
-        :h264 -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
-        :vp8 -> Membrane.RTP.VP8.Payloader
-      end
+    case codec do
+      nil ->
+        {[], state}
 
-    spec =
-      get_child({:connector, pad_ref})
-      |> child({:rtp_payloader, pad_ref}, payloader)
-      |> via_in(pad_ref, options: [kind: :video, codec: codec])
-      |> get_child(:webrtc)
+      codec ->
+        payloader =
+          case codec do
+            :h264 -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
+            :vp8 -> Membrane.RTP.VP8.Payloader
+          end
 
-    {[spec: spec], state}
+        spec =
+          get_child({:connector, pad_ref})
+          |> child({:rtp_payloader, pad_ref}, payloader)
+          |> via_in(pad_ref, options: [kind: :video, codec: codec])
+          |> get_child(:webrtc)
+
+        {[spec: spec], state}
+    end
   end
 
   @impl true
