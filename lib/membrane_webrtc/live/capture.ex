@@ -144,7 +144,7 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
     @impl true
     def render(%{capture: %__MODULE__{preview?: true}} = assigns) do
       ~H"""
-      <video id={@capture.id} phx-hook="Capture" class={@class} muted style="
+      <video id={@capture.id} phx-hook="Capture" class={@class} style="
         -o-transform: scaleX(-1);
         -moz-transform: scaleX(-1);
         -webkit-transform: scaleX(-1);
@@ -157,7 +157,7 @@ if Code.ensure_loaded?(Phoenix) and Code.ensure_loaded?(Phoenix.LiveView) do
     @impl true
     def render(%{capture: %__MODULE__{preview?: false}} = assigns) do
       ~H"""
-      <video id={@capture.id} phx-hook="Capture" class={@class} muted style="display: none;"></video>
+      <video id={@capture.id} phx-hook="Capture" class={@class} style="display: none;"></video>
       """
     end
 
