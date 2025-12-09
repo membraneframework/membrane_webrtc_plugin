@@ -63,7 +63,8 @@ defmodule Membrane.WebRTC.WhipClient do
         _other -> raise "Invalid WHEP answer location header"
       end
 
-    resource_uri = URI.parse(state.uri) |> then(&%URI{&1 | path: resource_id}) |> URI.to_string()
+    %URI{} = uri = URI.parse(state.uri)
+    resource_uri = %URI{uri | path: resource_id} |> URI.to_string()
 
     pid = self()
 
