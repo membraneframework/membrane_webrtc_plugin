@@ -231,8 +231,14 @@ defmodule Membrane.WebRTC.Source do
     {[], state}
   end
 
+  @spec get_depayloader(
+          Membrane.ChildrenSpec.builder(),
+          :audio | :video,
+          map()
+        ) :: Membrane.ChildrenSpec.builder() | no_return()
+
   defp get_depayloader(builder, :audio, _state) do
-    child(builder, %Membrane.RTP.DepayloaderBin{
+    child(builder, {:depayloader_bin, make_ref()}, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.Opus.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:opus)
     })
@@ -258,14 +264,14 @@ defmodule Membrane.WebRTC.Source do
   end
 
   defp get_vp8_depayloader(builder) do
-    child(builder, %Membrane.RTP.DepayloaderBin{
+    child(builder, {:depayloader_bin, make_ref()}, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.VP8.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:vp8)
     })
   end
 
   defp get_h264_depayloader(builder) do
-    child(builder, %Membrane.RTP.DepayloaderBin{
+    child(builder, {:depayloader_bin, make_ref()}, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
     })
