@@ -15,7 +15,7 @@ The package can be installed by adding `membrane_webrtc_plugin` to your list of 
 ```elixir
 def deps do
   [
-    {:membrane_webrtc_plugin, "~> 0.25.4"}
+    {:membrane_webrtc_plugin, "~> 0.26.1"}
   ]
 end
 ```
@@ -34,13 +34,13 @@ To run one of these demos, type: `elixir <script_name>` and visit `http://localh
 
 ## Exchanging Signaling Messages
 
-To establish a WebRTC connection you have to exchange WebRTC signaling messages between peers. 
-In `membrane_webrtc_plugin` it can be done by the user, with `Membrane.WebRTC.Signaling` or by passing WebSocket address to 
+To establish a WebRTC connection you have to exchange WebRTC signaling messages between peers.
+In `membrane_webrtc_plugin` it can be done by the user, with `Membrane.WebRTC.Signaling` or by passing WebSocket address to
 `Membrane.WebRTC.Source` or `Membrane.WebRTC.Sink`, but there are two additional ways of doing it, dedicated to be used within
 `Phoenix` projects:
  - The first one is to use `Membrane.WebRTC.PhoenixSignaling` along with `Membrane.WebRTC.PhoenixSignaling.Socket`
  - The second one is to use `Phoenix.LiveView` `Membrane.WebRTC.Live.Player` or `Membrane.WebRTC.Live.Capture`. These modules expect
- `t:Membrane.WebRTC.Signaling.t/0` as an argument and take advantage of WebSocket used by `Phoenix.LiveView` to exchange WebRTC 
+ `t:Membrane.WebRTC.Signaling.t/0` as an argument and take advantage of WebSocket used by `Phoenix.LiveView` to exchange WebRTC
  signaling messages, so there is no need to add any code to handle signaling messages.
 
 ### How to use Membrane.WebRTC.PhoenixSignaling in your own Phoenix project?
@@ -109,17 +109,17 @@ Visit `examples/phoenix_signaling/assets/js/signaling.js` to see how WebRTC sign
 
 ## Integrating Phoenix.LiveView with Membrane WebRTC Plugin
 
-`membrane_webrtc_plugin` comes with two `Phoenix.LiveView`s: 
- - `Membrane.WebRTC.Live.Capture` - exchanges WebRTC signaling messages between `Membrane.WebRTC.Source` and the browser. It 
- expects the same `Membrane.WebRTC.Signaling` that has been passed to the related `Membrane.WebRTC.Source`. As a result, 
- `Membrane.Webrtc.Source` will return the media stream captured from the browser, where `Membrane.WebRTC.Live.Capture` has been 
+`membrane_webrtc_plugin` comes with two `Phoenix.LiveView`s:
+ - `Membrane.WebRTC.Live.Capture` - exchanges WebRTC signaling messages between `Membrane.WebRTC.Source` and the browser. It
+ expects the same `Membrane.WebRTC.Signaling` that has been passed to the related `Membrane.WebRTC.Source`. As a result,
+ `Membrane.Webrtc.Source` will return the media stream captured from the browser, where `Membrane.WebRTC.Live.Capture` has been
  rendered.
- - `Membrane.WebRTC.Live.Player` - exchanges WebRTC signaling messages between `Membrane.WebRTC.Sink` and the browser. It 
- expects the same `Membrane.WebRTC.Signaling` that has been passed to the related `Membrane.WebRTC.Sink`. As a result, 
- `Membrane.WebRTC.Live.Player` will play media streams passed to the related `Membrane.WebRTC.Sink`. Currently supports up 
+ - `Membrane.WebRTC.Live.Player` - exchanges WebRTC signaling messages between `Membrane.WebRTC.Sink` and the browser. It
+ expects the same `Membrane.WebRTC.Signaling` that has been passed to the related `Membrane.WebRTC.Sink`. As a result,
+ `Membrane.WebRTC.Live.Player` will play media streams passed to the related `Membrane.WebRTC.Sink`. Currently supports up
  to one video stream and up to one audio stream.
 
-### Usage 
+### Usage
 
 To use `Phoenix.LiveView`s from this repository, you have to use related JS hooks. To do so, add the following code snippet to `assets/js/app.js`
 
