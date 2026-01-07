@@ -248,5 +248,5 @@ defmodule Membrane.WebRTC.Sink do
 
   defp ensure_single_video_codec(codec) when is_atom(codec), do: codec
   defp ensure_single_video_codec([codec]), do: codec
-  defp ensure_single_video_codec(_), do: nil
+  defp ensure_single_video_codec(_codec), do: nil
 end
