@@ -69,7 +69,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
   defmodule Utils do
     import ExUnit.Assertions
 
-    def fixture_processing_timeout, do: 30_000
+    def fixture_processing_timeout(), do: 30_000
 
     def prepare_input(pipeline, opts) do
       demuxer_name = {:demuxer, make_ref()}
