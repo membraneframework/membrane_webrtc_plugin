@@ -69,7 +69,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
   defmodule Utils do
     import ExUnit.Assertions
 
-    def fixture_processing_timeout, do: 30_000
+    def fixture_processing_timeout(), do: 30_000
 
     def prepare_input(pipeline, opts) do
       demuxer_name = {:demuxer, make_ref()}
@@ -502,6 +502,60 @@ defmodule Membrane.WebRTC.IntegrationTest do
           |> Enum.each(&Testing.Pipeline.terminate/1)
         end
       end)
+    end
+  end
+
+  defmodule AV1RawRTPPassthrough do
+    use ExUnit.Case, async: true
+
+    import Membrane.ChildrenSpec
+    import Membrane.Testing.Assertions
+
+    require Membrane.Pad, as: Pad
+
+    alias Membrane.Testing
+    alias Membrane.WebRTC
+    alias Membrane.WebRTC.Signaling
+
+    test "send and receive AV1 via raw RTP passthrough" do
+      signaling = Signaling.new()
+
+      send_pipeline = Testing.Pipeline.start_link_supervised!()
+      receive_pipeline = Testing.Pipeline.start_link_supervised!()
+
+      Testing.Pipeline.execute_actions(send_pipeline,
+        spec: [
+          child(:video_source, %KeyframeTestSource{
+            stream_format: %Membrane.RTP{}
+          })
+          |> via_in(:input, options: [kind: :video])
+          |> child(:webrtc, %WebRTC.Sink{
+            signaling: signaling,
+            payload_rtp: false,
+            video_codec: :av1,
+            tracks: [:video]
+          })
+        ]
+      )
+
+      Testing.Pipeline.execute_actions(receive_pipeline,
+        spec: [
+          child(:webrtc, %WebRTC.Source{
+            signaling: signaling,
+            depayload_rtp: false,
+            allowed_video_codecs: :av1
+          })
+          |> via_out(Pad.ref(:output, :video), options: [kind: :video])
+          |> child(:video_sink, KeyframeTestSink)
+        ]
+      )
+
+      assert_pipeline_notified(send_pipeline, :webrtc, {:negotiated_video_codecs, [:av1]})
+      assert_pipeline_notified(receive_pipeline, :webrtc, {:negotiated_video_codecs, [:av1]})
+      assert_pipeline_notified(receive_pipeline, :video_sink, {:buffer, _buffer}, 5_000)
+
+      Testing.Pipeline.terminate(send_pipeline)
+      Testing.Pipeline.terminate(receive_pipeline)
     end
   end
 end
