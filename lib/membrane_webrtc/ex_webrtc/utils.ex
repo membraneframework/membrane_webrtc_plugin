@@ -3,7 +3,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
 
   alias ExWebRTC.RTPCodecParameters
 
-  @type codec :: :opus | :h264 | :vp8
+  @type codec :: :opus | :h264 | :vp8 | :av1
   @type codec_or_codecs :: codec() | [codec()]
 
   @spec codec_params(codec_or_codecs()) :: [RTPCodecParameters.t()]
