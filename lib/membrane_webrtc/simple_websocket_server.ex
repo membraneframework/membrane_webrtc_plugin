@@ -43,7 +43,13 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
   @doc false
   @spec start_link_supervised(pid, options) :: Signaling.t()
   def start_link_supervised(utility_supervisor, opts) do
-    signaling = Signaling.new()
+    {:ok, signaling_pid} =
+      Membrane.UtilitySupervisor.start_link_child(
+        utility_supervisor,
+        {Signaling, []}
+      )
+
+    signaling = %Signaling{pid: signaling_pid}
 
     {:ok, _pid} =
       Membrane.UtilitySupervisor.start_link_child(

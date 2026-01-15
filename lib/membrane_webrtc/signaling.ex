@@ -64,6 +64,12 @@ defmodule Membrane.WebRTC.Signaling do
     %__MODULE__{pid: pid}
   end
 
+  @doc false
+  @spec start_link(term) :: GenServer.on_start()
+  def start_link(init_arg) do
+    GenServer.start_link(__MODULE__, init_arg)
+  end
+
   @doc """
   Registers a process as a peer, so that it can send and receive signaling messages.
 
