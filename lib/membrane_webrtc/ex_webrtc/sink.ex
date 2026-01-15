@@ -74,12 +74,15 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
       end
 
     {:ok, pc} =
-      PeerConnection.start_link(
-        ice_servers: state.ice_servers,
-        ice_port_range: state.ice_port_range,
-        ice_ip_filter: state.ice_ip_filter,
-        video_codecs: state.video_params,
-        audio_codecs: state.audio_params
+      Membrane.UtilitySupervisor.start_link_child(
+        ctx.utility_supervisor,
+        {PeerConnection,
+         controlling_process: self(),
+         ice_servers: state.ice_servers,
+         ice_port_range: state.ice_port_range,
+         ice_ip_filter: state.ice_ip_filter,
+         video_codecs: state.video_params,
+         audio_codecs: state.audio_params}
       )
 
     Process.monitor(signaling.pid)
