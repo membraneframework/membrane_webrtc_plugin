@@ -60,7 +60,13 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
           SimpleWebSocketServer.start_link_supervised(ctx.utility_supervisor, opts)
 
         {:whip, opts} ->
-          signaling = Signaling.new()
+          {:ok, signaling_pid} =
+            Membrane.UtilitySupervisor.start_link_child(
+              ctx.utility_supervisor,
+              {Signaling, []}
+            )
+
+          signaling = %Signaling{pid: signaling_pid}
 
           Membrane.UtilitySupervisor.start_link_child(
             ctx.utility_supervisor,

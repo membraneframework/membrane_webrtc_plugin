@@ -422,7 +422,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   defp setup_whip(ctx, opts) do
-    signaling = Signaling.new()
+    {:ok, signaling_pid} =
+      Membrane.UtilitySupervisor.start_link_child(
+        ctx.utility_supervisor,
+        {Signaling, []}
+      )
+
+    signaling = %Signaling{pid: signaling_pid}
     clients_cnt = :atomics.new(1, [])
     {token, opts} = Keyword.pop(opts, :token, fn _token -> true end)
     validate_token = if is_function(token), do: token, else: &(&1 == token)
