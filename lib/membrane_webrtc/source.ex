@@ -64,7 +64,7 @@ defmodule Membrane.WebRTC.Source do
                 """
               ],
               allowed_video_codecs: [
-                spec: :vp8 | :h264 | [:vp8 | :h264],
+                spec: :vp8 | :h264 | :av1 | [:vp8 | :h264 | :av1],
                 default: :vp8,
                 description: """
                 Specifies, which video codecs can be accepted by the source during the SDP
@@ -260,6 +260,14 @@ defmodule Membrane.WebRTC.Source do
 
       state.negotiated_video_codecs == nil ->
         raise "Cannot select depayloader before end of SDP messages exchange"
+
+      true ->
+        raise """
+        Unsupported video codec for depayloading: #{inspect(state.negotiated_video_codecs)}
+
+        If you're receiving raw RTP or using a codec without a built-in depayloader (like AV1),
+        set `depayload_rtp: false` in the Source options.
+        """
     end
   end
 

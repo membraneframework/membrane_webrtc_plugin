@@ -68,7 +68,7 @@ defmodule Membrane.WebRTC.Sink do
                 """
               ],
               video_codec: [
-                spec: :vp8 | :h264 | [:vp8 | :h264],
+                spec: :vp8 | :h264 | :av1 | [:vp8 | :h264 | :av1],
                 default: [:vp8, :h264],
                 description: """
                 Video codecs, that #{inspect(__MODULE__)} will try to negotiatie in SDP
@@ -103,6 +103,7 @@ defmodule Membrane.WebRTC.Sink do
       any_of(
         %Membrane.H264{alignment: :nalu},
         %Membrane.RemoteStream{content_format: Membrane.VP8},
+        %Membrane.RemoteStream{content_format: Membrane.RTP},
         Membrane.VP8,
         Membrane.Opus,
         Membrane.RTP
@@ -146,8 +147,10 @@ defmodule Membrane.WebRTC.Sink do
     spec =
       cond do
         not state.payload_rtp ->
+          codec = if kind == :video, do: ensure_single_video_codec(state.video_codec), else: :opus
+
           bin_input(pad_ref)
-          |> via_in(pad_ref, options: [kind: kind])
+          |> via_in(pad_ref, options: [kind: kind, codec: codec])
           |> get_child(:webrtc)
 
         kind == :audio ->
@@ -175,7 +178,6 @@ defmodule Membrane.WebRTC.Sink do
     {[], state}
   end
 
-  @impl true
   def handle_child_notification(
         {:stream_format, _connector_pad, stream_format},
         {:connector, pad_ref},
@@ -184,9 +186,21 @@ defmodule Membrane.WebRTC.Sink do
       ) do
     codec =
       case stream_format do
-        %H264{} -> :h264
-        %VP8{} -> :vp8
-        %RemoteStream{content_format: VP8} -> :vp8
+        %H264{} ->
+          :h264
+
+        %VP8{} ->
+          :vp8
+
+        %RemoteStream{content_format: VP8} ->
+          :vp8
+
+        other ->
+          raise """
+          Unsupported stream format for payloading: #{inspect(other)}
+          If you're sending raw RTP or using a codec without a built-in payloader (like AV1),
+          set `payload_rtp: false` in the Sink options.
+          """
       end
 
     payloader =
@@ -231,4 +245,8 @@ defmodule Membrane.WebRTC.Sink do
   end
 
   def default_ice_ip_filter(_ip), do: true
+
+  defp ensure_single_video_codec(codec) when is_atom(codec), do: codec
+  defp ensure_single_video_codec([codec]), do: codec
+  defp ensure_single_video_codec(_codecs), do: nil
 end

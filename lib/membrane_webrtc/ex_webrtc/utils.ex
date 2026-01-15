@@ -3,7 +3,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
 
   alias ExWebRTC.RTPCodecParameters
 
-  @type codec :: :opus | :h264 | :vp8
+  @type codec :: :opus | :h264 | :vp8 | :av1
   @type codec_or_codecs :: codec() | [codec()]
 
   @spec codec_params(codec_or_codecs()) :: [RTPCodecParameters.t()]
@@ -43,6 +43,22 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     ]
   end
 
+  def codec_params(:av1) do
+    [
+      %RTPCodecParameters{
+        payload_type: 45,
+        mime_type: "video/AV1",
+        clock_rate: codec_clock_rate(:av1),
+        sdp_fmtp_line: %ExSDP.Attribute.FMTP{
+          pt: 45,
+          profile: 0,
+          level_idx: 5,
+          tier: 0
+        }
+      }
+    ]
+  end
+
   def codec_params(codecs) when is_list(codecs) do
     codecs |> Enum.flat_map(&codec_params/1)
   end
@@ -51,6 +67,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
   def codec_clock_rate(:opus), do: 48_000
   def codec_clock_rate(:vp8), do: 90_000
   def codec_clock_rate(:h264), do: 90_000
+  def codec_clock_rate(:av1), do: 90_000
 
   def codec_clock_rate(codecs) when is_list(codecs) do
     cond do
@@ -62,7 +79,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     end
   end
 
-  @spec get_video_codecs_from_sdp(ExWebRTC.SessionDescription.t()) :: [:h264 | :vp8]
+  @spec get_video_codecs_from_sdp(ExWebRTC.SessionDescription.t()) :: [:h264 | :vp8 | :av1]
   def get_video_codecs_from_sdp(%ExWebRTC.SessionDescription{sdp: sdp}) do
     ex_sdp = ExSDP.parse!(sdp)
 
@@ -74,6 +91,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     |> Enum.flat_map(fn
       %ExSDP.Attribute.RTPMapping{encoding: "H264"} -> [:h264]
       %ExSDP.Attribute.RTPMapping{encoding: "VP8"} -> [:vp8]
+      %ExSDP.Attribute.RTPMapping{encoding: "AV1"} -> [:av1]
       _attribute -> []
     end)
     |> Enum.uniq()

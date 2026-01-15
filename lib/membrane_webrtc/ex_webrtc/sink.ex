@@ -130,7 +130,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
         :ok
 
       %{kind: :video, codec: nil} ->
-        supported_video_codecs = get_transceiver(state, pad)
+        transceiver = get_transceiver(state, pad)
+        supported_video_codecs = transceiver.codecs
 
         if length(supported_video_codecs) > 1 do
           raise """
@@ -151,8 +152,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     {[], state}
   end
 
-  defp set_pc_sender_video_codec(state, pad, codec) when codec in [:vp8, :h264] do
-    mime_type = if codec == :vp8, do: "video/VP8", else: "video/H264"
+  defp set_pc_sender_video_codec(state, pad, codec) when codec in [:vp8, :h264, :av1] do
+    mime_type = mime_type_from_codec(codec)
     transceiver = get_transceiver(state, pad)
 
     if transceiver == nil do
@@ -371,4 +372,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     seq_num = rem(params.seq_num + 1, @max_rtp_seq_num + 1)
     put_in(state.input_tracks[pad], {id, %{params | seq_num: seq_num}})
   end
+
+  defp mime_type_from_codec(:h264), do: "video/H264"
+  defp mime_type_from_codec(:vp8), do: "video/VP8"
+  defp mime_type_from_codec(:av1), do: "video/AV1"
 end
