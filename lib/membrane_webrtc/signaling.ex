@@ -62,7 +62,7 @@ defmodule Membrane.WebRTC.Signaling do
   Wraps spawned Signaling GenServer in a struct.
 
   Added as a quick fix, earlier implementation of `new/0` always started a Signaling GenServer
-  beyond any supervision tree, what led to having orphaned processes.
+  beyond any supervision tree, which led to having orphaned processes.
   """
 
   @spec new(pid()) :: t()
