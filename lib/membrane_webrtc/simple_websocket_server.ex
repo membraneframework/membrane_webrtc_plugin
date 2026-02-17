@@ -49,7 +49,7 @@ defmodule Membrane.WebRTC.SimpleWebSocketServer do
         {Signaling, []}
       )
 
-    signaling = %Signaling{pid: signaling_pid}
+    signaling = Signaling.new(signaling_pid)
 
     {:ok, _pid} =
       Membrane.UtilitySupervisor.start_link_child(

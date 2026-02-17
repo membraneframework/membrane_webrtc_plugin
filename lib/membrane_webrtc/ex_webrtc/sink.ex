@@ -66,7 +66,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
               {Signaling, []}
             )
 
-          signaling = %Signaling{pid: signaling_pid}
+          signaling = Signaling.new(signaling_pid)
 
           Membrane.UtilitySupervisor.start_link_child(
             ctx.utility_supervisor,
