@@ -228,12 +228,12 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   @impl true
   def handle_info(
         {:membrane_webrtc_signaling, _pid, %SessionDescription{type: :offer} = sdp, metadata},
-        _ctx,
+        ctx,
         state
       ) do
     Membrane.Logger.debug("Received SDP offer")
 
-    {codecs_notification, state} = ensure_peer_connection_started(sdp, state)
+    {codecs_notification, state} = ensure_peer_connection_started(ctx, sdp, state)
     :ok = PeerConnection.set_remote_description(state.pc, sdp)
 
     {new_tracks, awaiting_outputs} =
@@ -329,7 +329,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     {[], state}
   end
 
-  defp ensure_peer_connection_started(sdp, %{pc: nil} = state) do
+  defp ensure_peer_connection_started(ctx, sdp, %{pc: nil} = state) do
     video_codecs_in_sdp = ExWebRTCUtils.get_video_codecs_from_sdp(sdp)
 
     negotiated_video_codecs =
@@ -344,21 +344,22 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
     video_params = ExWebRTCUtils.codec_params(negotiated_video_codecs)
 
     {:ok, pc} =
-      PeerConnection.start(
-        ice_servers: state.ice_servers,
-        ice_port_range: state.ice_port_range,
-        ice_ip_filter: state.ice_ip_filter,
-        video_codecs: video_params,
-        audio_codecs: state.audio_params
+      Membrane.UtilitySupervisor.start_link_child(
+        ctx.utility_supervisor,
+        {PeerConnection,
+         controlling_process: self(),
+         ice_servers: state.ice_servers,
+         ice_port_range: state.ice_port_range,
+         ice_ip_filter: state.ice_ip_filter,
+         video_codecs: video_params,
+         audio_codecs: state.audio_params}
       )
-
-    Process.monitor(pc)
 
     notify_parent = [notify_parent: {:negotiated_video_codecs, negotiated_video_codecs}]
     {notify_parent, %{state | pc: pc, video_params: video_params}}
   end
 
-  defp ensure_peer_connection_started(_sdp, state), do: {[], state}
+  defp ensure_peer_connection_started(_ctx, _sdp, state), do: {[], state}
 
   defp maybe_answer(state) do
     if Enum.all?(state.output_tracks, fn {_id, %{status: status}} -> status == :connected end) do
@@ -421,7 +422,13 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
   end
 
   defp setup_whip(ctx, opts) do
-    signaling = Signaling.new()
+    {:ok, signaling_pid} =
+      Membrane.UtilitySupervisor.start_link_child(
+        ctx.utility_supervisor,
+        {Signaling, []}
+      )
+
+    signaling = %Signaling{pid: signaling_pid}
     clients_cnt = :atomics.new(1, [])
     {token, opts} = Keyword.pop(opts, :token, fn _token -> true end)
     validate_token = if is_function(token), do: token, else: &(&1 == token)
