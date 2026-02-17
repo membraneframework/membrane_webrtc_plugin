@@ -428,7 +428,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         {Signaling, []}
       )
 
-    signaling = Signaling.new(signaling_pid)
+    signaling = %Signaling{pid: signaling_pid}
     clients_cnt = :atomics.new(1, [])
     {token, opts} = Keyword.pop(opts, :token, fn _token -> true end)
     validate_token = if is_function(token), do: token, else: &(&1 == token)

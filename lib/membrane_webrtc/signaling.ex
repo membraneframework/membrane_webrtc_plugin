@@ -58,35 +58,13 @@ defmodule Membrane.WebRTC.Signaling do
   """
   @type json_data_message :: %{String.t() => term}
 
-  @doc """
-  Wraps spawned Signaling GenServer in a struct.
-
-  Added as a quick fix, earlier implementation of `new/0` always started a Signaling GenServer
-  beyond any supervision tree, what led to having orphaned processes.
-  """
-
-  @spec new(pid()) :: t()
-  def new(signaling_pid) do
-    %__MODULE__{pid: signaling_pid}
-  end
-
-  @doc """
-  Spawns Signaling GenServer and wraps it in a struct.
-
-  Be aware that the GenServer is not started under any supervision tree, so it needs to be manually
-  stopped.
-  """
-  @spec new() :: t()
+  @spec new() :: t
   def new() do
     {:ok, pid} = GenServer.start_link(__MODULE__, [])
     %__MODULE__{pid: pid}
   end
 
-  @doc """
-  Starts and links a Signaling GenServer.
-
-  Returned pid should be passed to `new/1`.
-  """
+  @doc false
   @spec start_link(term) :: GenServer.on_start()
   def start_link(init_arg) do
     GenServer.start_link(__MODULE__, init_arg)
