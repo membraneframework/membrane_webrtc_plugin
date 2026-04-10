@@ -8,6 +8,6 @@ defmodule Membrane.WebRTC.App do
       [{Registry, name: Membrane.WebRTC.WhipRegistry, keys: :unique}] ++
         if Code.ensure_loaded?(Phoenix), do: [Membrane.WebRTC.PhoenixSignaling.Registry], else: []
 
-    Supervisor.start_link(children, strategy: :one_for_all, name: __MODULE__.Supervisor)
+    Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__.Supervisor)
   end
 end

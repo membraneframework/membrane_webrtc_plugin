@@ -13,9 +13,15 @@ if Code.ensure_loaded?(Phoenix) do
 
     @impl true
     def handle_in(signaling_id, msg, socket) do
-      msg = Jason.decode!(msg)
-      PhoenixSignaling.signal(signaling_id, msg)
-      {:noreply, socket}
+      case Membrane.WebRTC.PhoenixSignaling.Registry.get(signaling_id) do
+        nil ->
+          {:stop, :normal, socket}
+
+        signaling ->
+          msg = Jason.decode!(msg)
+          Membrane.WebRTC.Signaling.signal(signaling, msg)
+          {:noreply, socket}
+      end
     end
 
     @impl true
