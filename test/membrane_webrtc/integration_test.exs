@@ -379,7 +379,12 @@ defmodule Membrane.WebRTC.IntegrationTest do
 
       [send_pipeline, receive_pipeline]
       |> Enum.each(fn pipeline ->
-        assert_pipeline_notified(pipeline, :webrtc, {:negotiated_video_codecs, [:vp8]})
+        assert_pipeline_notified(
+          pipeline,
+          :webrtc,
+          {:negotiated_video_codecs, [:vp8]},
+          fixture_processing_timeout()
+        )
       end)
 
       assert_pipeline_notified(
@@ -405,6 +410,7 @@ defmodule Membrane.WebRTC.IntegrationTest do
     use ExUnit.Case, async: true
 
     import Membrane.Testing.Assertions
+    import Utils
     alias Membrane.WebRTC
 
     describe "codecs negotiation when" do
@@ -492,11 +498,28 @@ defmodule Membrane.WebRTC.IntegrationTest do
             assert_pipeline_notified(
               pipeline,
               webrtc_element,
-              {:negotiated_video_codecs, [:h264]}
+              {:negotiated_video_codecs, [:h264]},
+              fixture_processing_timeout()
             )
           end)
 
-          Process.sleep(500)
+          # Drain the matroska demuxer's cache before terminating. Otherwise
+          # `Membrane.Matroska.Demuxer.handle_end_of_stream` flushes cached
+          # buffers to output pads while they're being torn down on terminate,
+          # crashing with `UnknownPadError`.
+          assert_pipeline_notified(
+            send_pipeline,
+            :webrtc_sink,
+            {:end_of_stream, :audio},
+            fixture_processing_timeout()
+          )
+
+          assert_pipeline_notified(
+            send_pipeline,
+            :webrtc_sink,
+            {:end_of_stream, :video},
+            1_000
+          )
 
           [send_pipeline, receive_pipeline]
           |> Enum.each(&Testing.Pipeline.terminate/1)
