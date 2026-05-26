@@ -45,8 +45,7 @@ if Code.ensure_loaded?(Phoenix) do
     def handle_call({:get_or_create, signaling_id}, _from, state) do
       case Map.get(state.signaling_map, signaling_id) do
         nil ->
-          signaling = Signaling.new()
-          Process.unlink(signaling.pid)
+          signaling = Signaling.start()
           ref = Process.monitor(signaling.pid)
           state = put_in(state, [:signaling_map, signaling_id], signaling)
           state = put_in(state, [:refs, ref], signaling_id)
@@ -69,7 +68,8 @@ if Code.ensure_loaded?(Phoenix) do
           {:noreply, state}
 
         {signaling_id, refs} ->
-          {:noreply, %{state | signaling_map: Map.delete(state.signaling_map, signaling_id), refs: refs}}
+          {:noreply,
+           %{state | signaling_map: Map.delete(state.signaling_map, signaling_id), refs: refs}}
       end
     end
   end

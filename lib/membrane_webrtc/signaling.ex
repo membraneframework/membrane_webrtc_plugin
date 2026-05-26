@@ -83,6 +83,18 @@ defmodule Membrane.WebRTC.Signaling do
   end
 
   @doc """
+  Spawns Signaling GenServer and wraps it in a struct, without linking to the caller.
+
+  Be aware that the GenServer is not started under any supervision tree, so it needs to be manually
+  stopped or monitored.
+  """
+  @spec start() :: t()
+  def start() do
+    {:ok, pid} = GenServer.start(__MODULE__, [])
+    %__MODULE__{pid: pid}
+  end
+
+  @doc """
   Starts and links a Signaling GenServer.
 
   Returned pid should be passed to `new/1`.
