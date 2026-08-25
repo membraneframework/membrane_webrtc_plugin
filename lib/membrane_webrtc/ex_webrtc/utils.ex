@@ -3,7 +3,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
 
   alias ExWebRTC.RTPCodecParameters
 
-  @type codec :: :opus | :h264 | :vp8 | :av1
+  @type codec :: :opus | :h264 | :h265 | :vp8 | :av1
   @type codec_or_codecs :: codec() | [codec()]
 
   @spec codec_params(codec_or_codecs()) :: [RTPCodecParameters.t()]
@@ -28,6 +28,22 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
           level_asymmetry_allowed: true,
           packetization_mode: 1,
           profile_level_id: 0x42E01F
+        }
+      }
+    ]
+  end
+
+  def codec_params(:h265) do
+    [
+      %RTPCodecParameters{
+        payload_type: 98,
+        mime_type: "video/H265",
+        clock_rate: codec_clock_rate(:h265),
+        sdp_fmtp_line: %ExSDP.Attribute.FMTP{
+          pt: 98,
+          profile_id: 1,
+          tier_flag: false,
+          level_id: 153
         }
       }
     ]
@@ -67,6 +83,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
   def codec_clock_rate(:opus), do: 48_000
   def codec_clock_rate(:vp8), do: 90_000
   def codec_clock_rate(:h264), do: 90_000
+  def codec_clock_rate(:h265), do: 90_000
   def codec_clock_rate(:av1), do: 90_000
 
   def codec_clock_rate(codecs) when is_list(codecs) do
@@ -74,12 +91,14 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
       codecs == [:opus] ->
         48_000
 
-      codecs != [] and Enum.all?(codecs, &(&1 in [:vp8, :h264])) ->
+      codecs != [] and Enum.all?(codecs, &(&1 in [:vp8, :h264, :h265])) ->
         90_000
     end
   end
 
-  @spec get_video_codecs_from_sdp(ExWebRTC.SessionDescription.t()) :: [:h264 | :vp8 | :av1]
+  @spec get_video_codecs_from_sdp(ExWebRTC.SessionDescription.t()) :: [
+          :h264 | :h265 | :vp8 | :av1
+        ]
   def get_video_codecs_from_sdp(%ExWebRTC.SessionDescription{sdp: sdp}) do
     ex_sdp = ExSDP.parse!(sdp)
 
@@ -90,6 +109,7 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     end)
     |> Enum.flat_map(fn
       %ExSDP.Attribute.RTPMapping{encoding: "H264"} -> [:h264]
+      %ExSDP.Attribute.RTPMapping{encoding: "H265"} -> [:h265]
       %ExSDP.Attribute.RTPMapping{encoding: "VP8"} -> [:vp8]
       %ExSDP.Attribute.RTPMapping{encoding: "AV1"} -> [:av1]
       _attribute -> []

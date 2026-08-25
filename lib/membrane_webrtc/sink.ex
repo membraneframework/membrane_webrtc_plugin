@@ -18,6 +18,7 @@ defmodule Membrane.WebRTC.Sink do
   use Membrane.Bin
 
   alias Membrane.H264
+  alias Membrane.H265
   alias Membrane.RemoteStream
   alias Membrane.VP8
   alias Membrane.WebRTC.{ExWebRTCSink, Signaling, SimpleWebSocketServer}
@@ -68,7 +69,7 @@ defmodule Membrane.WebRTC.Sink do
                 """
               ],
               video_codec: [
-                spec: :vp8 | :h264 | :av1 | [:vp8 | :h264 | :av1],
+                spec: :vp8 | :h264 | :h265 | :av1 | [:vp8 | :h264 | :h265 | :av1],
                 default: [:vp8, :h264],
                 description: """
                 Video codecs, that #{inspect(__MODULE__)} will try to negotiatie in SDP
@@ -102,6 +103,7 @@ defmodule Membrane.WebRTC.Sink do
     accepted_format:
       any_of(
         %Membrane.H264{alignment: :nalu},
+        %Membrane.H265{alignment: :nalu},
         %Membrane.RemoteStream{content_format: Membrane.VP8},
         %Membrane.RemoteStream{content_format: Membrane.RTP},
         Membrane.VP8,
@@ -189,6 +191,9 @@ defmodule Membrane.WebRTC.Sink do
         %H264{} ->
           :h264
 
+        %H265{} ->
+          :h265
+
         %VP8{} ->
           :vp8
 
@@ -206,6 +211,7 @@ defmodule Membrane.WebRTC.Sink do
     payloader =
       case codec do
         :h264 -> %Membrane.RTP.H264.Payloader{max_payload_size: 1000}
+        :h265 -> %Membrane.RTP.H265.Payloader{max_payload_size: 1000}
         :vp8 -> Membrane.RTP.VP8.Payloader
       end
 

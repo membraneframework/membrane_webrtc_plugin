@@ -161,7 +161,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
     {[], state}
   end
 
-  defp set_pc_sender_video_codec(state, pad, codec) when codec in [:vp8, :h264, :av1] do
+  defp set_pc_sender_video_codec(state, pad, codec) when codec in [:vp8, :h264, :h265, :av1] do
     mime_type = mime_type_from_codec(codec)
     transceiver = get_transceiver(state, pad)
 
@@ -383,6 +383,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
   end
 
   defp mime_type_from_codec(:h264), do: "video/H264"
+  defp mime_type_from_codec(:h265), do: "video/H265"
   defp mime_type_from_codec(:vp8), do: "video/VP8"
   defp mime_type_from_codec(:av1), do: "video/AV1"
 end
