@@ -226,6 +226,70 @@ defmodule Membrane.WebRTC.IntegrationTest do
     end
   end
 
+  defmodule H265SendRecv do
+    use ExUnit.Case, async: true
+
+    import Membrane.Testing.Assertions
+    import Utils
+
+    test "send and receive an H265 stream" do
+      signaling = Signaling.new()
+
+      send_pipeline =
+        Testing.Pipeline.start_link_supervised!(
+          spec:
+            child(%Membrane.File.Source{location: "test/fixtures/input_bbb.h265"})
+            |> child(%Membrane.H265.Parser{
+              output_alignment: :nalu,
+              output_stream_structure: :annexb,
+              generate_best_effort_timestamps: %{framerate: {24, 1}}
+            })
+            |> child(Membrane.Realtimer)
+            |> via_in(Pad.ref(:input, :video), options: [kind: :video])
+            |> child(:webrtc, %WebRTC.Sink{
+              signaling: signaling,
+              tracks: [:video],
+              video_codec: [:h265]
+            })
+        )
+
+      receive_pipeline =
+        Testing.Pipeline.start_link_supervised!(
+          spec:
+            child(:webrtc, %WebRTC.Source{
+              signaling: signaling,
+              allowed_video_codecs: [:h265],
+              preferred_video_codec: :h265
+            })
+            |> via_out(Pad.ref(:output, :video), options: [kind: :video])
+            |> child(:video_sink, Membrane.Testing.Sink)
+        )
+
+      [send_pipeline, receive_pipeline]
+      |> Enum.each(fn pipeline ->
+        assert_pipeline_notified(
+          pipeline,
+          :webrtc,
+          {:negotiated_video_codecs, [:h265]},
+          fixture_processing_timeout()
+        )
+      end)
+
+      assert_sink_stream_format(receive_pipeline, :video_sink, %Membrane.H265{}, 10_000)
+      assert_sink_buffer(receive_pipeline, :video_sink, %Membrane.Buffer{}, 10_000)
+
+      assert_pipeline_notified(
+        send_pipeline,
+        :webrtc,
+        {:end_of_stream, :video},
+        fixture_processing_timeout()
+      )
+
+      Testing.Pipeline.terminate(send_pipeline)
+      Testing.Pipeline.terminate(receive_pipeline)
+    end
+  end
+
   defmodule DynamicTracks do
     use ExUnit.Case, async: true
 

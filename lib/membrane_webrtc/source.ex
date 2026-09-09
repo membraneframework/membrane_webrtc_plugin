@@ -64,13 +64,13 @@ defmodule Membrane.WebRTC.Source do
                 """
               ],
               allowed_video_codecs: [
-                spec: :vp8 | :h264 | :av1 | [:vp8 | :h264 | :av1],
+                spec: :vp8 | :h264 | :h265 | :av1 | [:vp8 | :h264 | :h265 | :av1],
                 default: :vp8,
                 description: """
                 Specifies, which video codecs can be accepted by the source during the SDP
                 negotiaion.
 
-                Either `:vp8`, `:h264` or a list containing both options.
+                Either `:vp8`, `:h264`, `:h265` or a list containing these options.
 
                 Event if it is set to `[:h264, :vp8]`, the source will negotiate at most
                 one video codec. Negotiated codec can be deduced from
@@ -83,7 +83,7 @@ defmodule Membrane.WebRTC.Source do
                 """
               ],
               preferred_video_codec: [
-                spec: :vp8 | :h264,
+                spec: :vp8 | :h264 | :h265,
                 default: :vp8,
                 description: """
                 Specyfies, which video codec will be preferred by the source, if both of
@@ -129,6 +129,7 @@ defmodule Membrane.WebRTC.Source do
     accepted_format:
       any_of(
         Membrane.H264,
+        Membrane.H265,
         %Membrane.RemoteStream{content_format: Membrane.VP8},
         %Membrane.RemoteStream{content_format: Membrane.Opus},
         Membrane.RTP
@@ -252,11 +253,17 @@ defmodule Membrane.WebRTC.Source do
       state.allowed_video_codecs == [:h264] ->
         get_h264_depayloader(builder)
 
+      state.allowed_video_codecs == [:h265] ->
+        get_h265_depayloader(builder)
+
       state.negotiated_video_codecs == [:vp8] ->
         get_vp8_depayloader(builder)
 
       state.negotiated_video_codecs == [:h264] ->
         get_h264_depayloader(builder)
+
+      state.negotiated_video_codecs == [:h265] ->
+        get_h265_depayloader(builder)
 
       state.negotiated_video_codecs == nil ->
         raise "Cannot select depayloader before end of SDP messages exchange"
@@ -282,6 +289,13 @@ defmodule Membrane.WebRTC.Source do
     child(builder, {:depayloader_bin, make_ref()}, %Membrane.RTP.DepayloaderBin{
       depayloader: Membrane.RTP.H264.Depayloader,
       clock_rate: ExWebRTCUtils.codec_clock_rate(:h264)
+    })
+  end
+
+  defp get_h265_depayloader(builder) do
+    child(builder, {:depayloader_bin, make_ref()}, %Membrane.RTP.DepayloaderBin{
+      depayloader: Membrane.RTP.H265.Depayloader,
+      clock_rate: ExWebRTCUtils.codec_clock_rate(:h265)
     })
   end
 
