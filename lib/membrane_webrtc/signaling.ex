@@ -14,8 +14,6 @@ defmodule Membrane.WebRTC.Signaling do
   """
   use GenServer
 
-  require Logger
-
   alias ExWebRTC.{ICECandidate, SessionDescription}
 
   @enforce_keys [:pid]
