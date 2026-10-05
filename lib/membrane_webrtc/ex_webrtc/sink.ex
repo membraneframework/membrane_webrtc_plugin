@@ -21,7 +21,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
               video_codec: [],
               ice_servers: [],
               ice_port_range: [],
-              ice_ip_filter: []
+              ice_ip_filter: [],
+              ice_aggressive_nomination: []
 
   def_input_pad :input,
     accepted_format: Membrane.RTP,
@@ -48,7 +49,8 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
        video_codec: opts.video_codec,
        ice_servers: opts.ice_servers,
        ice_port_range: opts.ice_port_range,
-       ice_ip_filter: opts.ice_ip_filter
+       ice_ip_filter: opts.ice_ip_filter,
+       ice_aggressive_nomination: opts.ice_aggressive_nomination
      }}
   end
 
@@ -87,6 +89,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
          ice_servers: state.ice_servers,
          ice_port_range: state.ice_port_range,
          ice_ip_filter: state.ice_ip_filter,
+         ice_aggressive_nomination: state.ice_aggressive_nomination,
          video_codecs: state.video_params,
          audio_codecs: state.audio_params}
       )

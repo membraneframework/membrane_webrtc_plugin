@@ -94,6 +94,10 @@ defmodule Membrane.WebRTC.Sink do
                 spec: (:inet.ip_address() -> boolean()),
                 default: &__MODULE__.default_ice_ip_filter/1
               ],
+              ice_aggressive_nomination: [
+                spec: boolean(),
+                default: false
+              ],
               payload_rtp: [
                 spec: boolean(),
                 default: true
@@ -133,7 +137,8 @@ defmodule Membrane.WebRTC.Sink do
         video_codec: opts.video_codec,
         ice_servers: opts.ice_servers,
         ice_port_range: opts.ice_port_range,
-        ice_ip_filter: opts.ice_ip_filter
+        ice_ip_filter: opts.ice_ip_filter,
+        ice_aggressive_nomination: opts.ice_aggressive_nomination
       })
 
     {[spec: spec], %{payload_rtp: opts.payload_rtp, video_codec: opts.video_codec}}
