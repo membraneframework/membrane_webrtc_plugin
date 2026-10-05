@@ -22,7 +22,7 @@ defmodule Membrane.WebRTC.ExWebRTCSink do
               ice_servers: [],
               ice_port_range: [],
               ice_ip_filter: [],
-              ice_aggressive_nomination: [spec: boolean(), default: false]
+              ice_aggressive_nomination: []
 
   def_input_pad :input,
     accepted_format: Membrane.RTP,

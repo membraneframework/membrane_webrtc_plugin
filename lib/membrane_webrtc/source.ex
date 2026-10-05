@@ -115,10 +115,6 @@ defmodule Membrane.WebRTC.Source do
                 spec: (:inet.ip_address() -> boolean()),
                 default: &__MODULE__.default_ice_ip_filter/1
               ],
-              ice_aggressive_nomination: [
-                spec: boolean(),
-                default: false
-              ],
               depayload_rtp: [
                 spec: boolean(),
                 default: true

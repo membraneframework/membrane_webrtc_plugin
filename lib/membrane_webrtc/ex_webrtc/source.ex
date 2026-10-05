@@ -14,7 +14,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
               ice_servers: [],
               ice_port_range: [],
               ice_ip_filter: [],
-              ice_aggressive_nomination: [spec: boolean(), default: false],
               keyframe_interval: [],
               sdp_candidates_timeout: []
 
@@ -71,7 +70,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
                 [
                   video_params: nil,
                   pc: nil,
-                  ice_aggressive_nomination: false,
                   output_tracks: %{},
                   awaiting_outputs: [],
                   awaiting_candidates: [],
@@ -91,7 +89,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
        ice_servers: opts.ice_servers,
        ice_port_range: opts.ice_port_range,
        ice_ip_filter: opts.ice_ip_filter,
-       ice_aggressive_nomination: opts.ice_aggressive_nomination,
        keyframe_interval: opts.keyframe_interval,
        sdp_candidates_timeout: opts.sdp_candidates_timeout
      }}
@@ -354,7 +351,6 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
          ice_servers: state.ice_servers,
          ice_port_range: state.ice_port_range,
          ice_ip_filter: state.ice_ip_filter,
-         ice_aggressive_nomination: state.ice_aggressive_nomination,
          video_codecs: video_params,
          audio_codecs: state.audio_params}
       )
