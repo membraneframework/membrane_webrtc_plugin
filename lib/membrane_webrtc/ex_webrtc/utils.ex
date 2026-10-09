@@ -79,6 +79,17 @@ defmodule Membrane.WebRTC.ExWebRTCUtils do
     codecs |> Enum.flat_map(&codec_params/1)
   end
 
+  @spec receive_codec_params(codec_or_codecs()) :: [RTPCodecParameters.t()]
+  def receive_codec_params(:h264) do
+    codec_params(:h264) |> Enum.map(&%{&1 | sdp_fmtp_line: nil})
+  end
+
+  def receive_codec_params(codecs) when is_list(codecs) do
+    codecs |> Enum.flat_map(&receive_codec_params/1)
+  end
+
+  def receive_codec_params(codec), do: codec_params(codec)
+
   @spec codec_clock_rate(codec_or_codecs()) :: pos_integer()
   def codec_clock_rate(:opus), do: 48_000
   def codec_clock_rate(:vp8), do: 90_000

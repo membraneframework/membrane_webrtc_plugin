@@ -341,7 +341,7 @@ defmodule Membrane.WebRTC.ExWebRTCSource do
         _both -> [state.preferred_video_codec]
       end
 
-    video_params = ExWebRTCUtils.codec_params(negotiated_video_codecs)
+    video_params = ExWebRTCUtils.receive_codec_params(negotiated_video_codecs)
 
     {:ok, pc} =
       Membrane.UtilitySupervisor.start_link_child(
